@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background-color: #f5f5f5;
+  color: #333;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-gradient-to-r from-taobao-orange to-taobao-red text-white px-6 py-2 rounded-full font-medium hover:shadow-lg hover:shadow-orange-500/30 transition-all duration-300;
+  }
+
+  .btn-secondary {
+    @apply bg-gray-100 text-gray-700 px-6 py-2 rounded-full font-medium hover:bg-gray-200 transition-all duration-300;
+  }
+
+  .card {
+    @apply bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300;
+  }
+
+  .price {
+    @apply text-price-red font-bold;
+  }
+
+  .page-container {
+    @apply bg-taobao-gray min-h-screen;
+  }
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: all 0.3s ease;
+}
+
+.slide-up-enter-from,
+.slide-up-leave-to {
+  opacity: 0;
+  transform: translateY(20px);
+}
