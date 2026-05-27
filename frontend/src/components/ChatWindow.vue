@@ -125,6 +125,35 @@
               ]"
             >
               <p class="text-sm whitespace-pre-wrap">{{ msg.content }}</p>
+              <!-- 显示商品卡片 -->
+              <div v-if="msg.products && msg.products.length > 0" class="mt-3">
+                <div class="grid grid-cols-1 gap-2">
+                  <div 
+                    v-for="product in msg.products" 
+                    :key="product.id"
+                    class="flex items-center gap-3 p-2 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
+                    @click="goToProduct(product.id)"
+                  >
+                    <div class="relative w-16 h-16 bg-gray-100 flex items-center justify-center flex-shrink-0 rounded overflow-hidden">
+                      <img 
+                        v-if="product.image" 
+                        :src="product.image" 
+                        :alt="product.title" 
+                        class="w-full h-full object-cover"
+                        @error="e => { e.target.style.display='none'; e.target.nextElementSibling.style.display='flex' }"
+                      />
+                      <span 
+                        v-else 
+                        class="w-full h-full flex items-center justify-center text-2xl text-gray-400"
+                      >🛍️</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm font-medium text-gray-800 line-clamp-2">{{ product.title }}</p>
+                      <p class="text-red-500 font-bold mt-1">¥{{ product.price }}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
               <p :class="[
                 'text-xs mt-1',
                 msg.role === 'user' ? 'text-white/60' : 'text-gray-400'
@@ -629,6 +658,13 @@ const stripMarkdown = (text) => {
     .replace(/!\[([^\]]*)\]\([^)]+\)/g, '')
 }
 
+const goToProduct = (productId) => {
+  if (productId) {
+    closeChat()
+    router.push(`/product/${productId}`)
+  }
+}
+
 const showToastMessage = (message) => {
   toastMessage.value = message
   showToast.value = true
@@ -674,8 +710,15 @@ const sendMessage = (text = null) => {
     if (res.success) {
       const reply = stripMarkdown(res.data.reply)
       
+      const messageData = {
+        role: 'assistant',
+        content: reply,
+        timestamp: new Date()
+      }
+      
       if (res.data.products && res.data.products.length > 0) {
         console.log('推荐商品:', res.data.products)
+        messageData.products = res.data.products
       }
       
       if (res.data.actions && res.data.actions.length > 0) {
@@ -684,11 +727,7 @@ const sendMessage = (text = null) => {
         })
       }
 
-      messages.value.push({
-        role: 'assistant',
-        content: reply,
-        timestamp: new Date()
-      })
+      messages.value.push(messageData)
     } else {
       console.error('AI 请求失败:', res.message)
       messages.value.push({
