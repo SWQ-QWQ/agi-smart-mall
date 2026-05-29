@@ -10,7 +10,7 @@ const seedAdmin = async () => {
     initAssociations()
     console.log('✅ Model associations initialized')
 
-    const admin = await User.findOrCreate({
+    const [admin, created] = await User.findOrCreate({
       where: { username: 'admin' },
       defaults: {
         username: 'admin',
@@ -21,10 +21,16 @@ const seedAdmin = async () => {
       }
     })
 
-    if (admin) {
-      console.log('✅ Admin account created/updated')
+    if (!created && admin) {
+      await admin.update({
+        password: 'admin123',
+        email: 'admin@example.com',
+        role: 'admin',
+        status: 'active'
+      })
+      console.log('✅ Admin account updated')
     } else {
-      console.log('✅ Admin account already exists')
+      console.log('✅ Admin account created')
     }
 
     process.exit(0)

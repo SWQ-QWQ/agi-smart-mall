@@ -105,8 +105,19 @@ const startServer = async () => {
     // await sequelize.sync({ alter: true })
     // console.log('✅ Database tables synchronized with schema updates')
 
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       console.log(`🚀 Server is running on http://localhost:${PORT}`)
+    })
+    
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.error(`❌ 端口 ${PORT} 已被占用！`)
+        console.error(`请结束占用该端口的进程后重新启动，或修改 .env 中的 PORT 配置`)
+        process.exit(1)
+      } else {
+        console.error('❌ 服务启动失败:', err)
+        process.exit(1)
+      }
     })
   } catch (error) {
     console.error('❌ Unable to start server:', error)

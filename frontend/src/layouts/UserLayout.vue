@@ -14,47 +14,19 @@
 
           <!-- 顶部横向分类导航（仅非首页显示） -->
           <nav v-if="!isHomePage" class="flex flex-nowrap items-center gap-3 mr-3 flex-shrink-0">
-            <template v-for="(cat, index) in categories.slice(0, 5)" :key="index">
-              <router-link
-                :to="cat.path"
-                :class="[
-                  'text-sm font-medium transition-colors whitespace-nowrap',
-                  (index === 0 && route.path === '/') || (route.query.categoryId == cat.categoryId)
-                    ? 'text-orange-500'
-                    : 'text-gray-600 hover:text-orange-500'
-                ]"
-              >
-                {{ cat.name }}
-              </router-link>
-            </template>
-            
-            <!-- 更多分类下拉 -->
-            <div class="relative" ref="moreMenuRef">
-              <button
-                @click.stop="showMore = !showMore"
-                :class="[
-                  'text-sm font-medium transition-colors whitespace-nowrap',
-                  showMore ? 'text-orange-500' : 'text-gray-600 hover:text-orange-500'
-                ]"
-              >
-                {{ showMore ? '收起 ▲' : '更多 ▼' }}
-              </button>
-              <div
-                v-if="showMore"
-                class="absolute left-0 top-full mt-2 z-50 bg-white rounded-xl shadow-lg py-2 min-w-[140px]"
-                @click.stop
-              >
-                <router-link
-                  v-for="(cat, index) in categories.slice(5)"
-                  :key="index"
-                  :to="cat.path"
-                  @click="showMore = false"
-                  class="block px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 hover:text-orange-500 transition-all"
-                >
-                  {{ cat.name }}
-                </router-link>
-              </div>
-            </div>
+            <router-link
+              v-for="(cat, index) in categories"
+              :key="index"
+              :to="cat.path"
+              :class="[
+                'text-sm font-medium transition-colors whitespace-nowrap',
+                (index === 0 && route.path === '/') || (route.query.categoryId == cat.categoryId)
+                  ? 'text-orange-500'
+                  : 'text-gray-600 hover:text-orange-500'
+              ]"
+            >
+              {{ cat.name }}
+            </router-link>
           </nav>
 
           <!-- 搜索框（仅非首页显示） -->
@@ -101,9 +73,7 @@
               @click="handleSearch"
               class="bg-orange-500 text-white px-3 py-1.5 rounded-r-full hover:bg-orange-600 transition-colors"
             >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 70 11-14 0 7 70 0114 0z"></path>
-              </svg>
+              搜索
             </button>
           </div>
           
@@ -206,7 +176,7 @@
                       <router-link
                         v-for="subCat in cat.children"
                         :key="subCat.id"
-                        :to="{ name: 'Products', query: { categoryId: cat.id } }"
+                        :to="{ name: 'Products', query: { categoryId: cat.id, keyword: subCat.name } }"
                         class="px-3 py-2 text-sm text-gray-600 hover:bg-orange-50 hover:text-orange-600 rounded-lg transition-all whitespace-nowrap"
                         @click="hoverCategoryId = null"
                       >
@@ -241,11 +211,9 @@
         <Transition name="fade">
           <div
             v-if="showWechat"
-            class="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-white rounded-xl shadow-xl p-3 z-50"
+            class="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-white rounded-xl shadow-xl p-4 z-50 w-40"
           >
-            <div class="w-32 h-32 bg-gray-100 rounded-lg flex items-center justify-center">
-              <span class="text-xs text-gray-400">微信二维码</span>
-            </div>
+            <img src="/avatars/qrcode.png" alt="微信二维码" class="w-full h-auto object-contain" />
             <p class="text-xs text-gray-500 text-center mt-2">扫码关注公众号</p>
           </div>
         </Transition>
@@ -321,12 +289,7 @@
             </ul>
           </div>
           <div class="col-span-1 flex flex-col items-center">
-            <div class="w-32 h-32 bg-gray-100 rounded-lg flex items-center justify-center mb-4">
-              <div class="text-center text-gray-500 text-sm">
-                <p>扫码关注</p>
-                <p>公众号</p>
-              </div>
-            </div>
+            <img src="/avatars/qrcode.png" alt="微信二维码" class="w-32 h-32 object-cover rounded-lg mb-4" />
             <p class="text-gray-500 text-sm">关注领取优惠</p>
           </div>
         </div>
@@ -340,11 +303,13 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
+import { ref, onMounted, onUnmounted, watch, computed, inject } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useCartStore } from '@/stores/cart'
 import { getProducts } from '@/api/productApi'
+
+const isAiDragging = inject('isAiDragging', ref(false))
 
 const router = useRouter()
 const route = useRoute()
@@ -359,8 +324,6 @@ const searchSuggestions = ref([])
 const searchHistoryItems = ref([])
 const allProductNames = ref([])
 const hoverCategoryId = ref(null)
-const showMore = ref(false)
-const moreMenuRef = ref(null)
 
 const categories = [
   { name: '首页', path: '/' },
@@ -392,10 +355,14 @@ const navCategories = [
     name: '生活家居',
     to: { name: 'Products', query: { categoryId: 1 } },
     children: [
-      { id: 11, name: '收纳整理' },
-      { id: 12, name: '香薰蜡烛' },
-      { id: 13, name: '家居饰品' },
-      { id: 14, name: '清洁用品' }
+      { id: 11, name: '太力' },
+      { id: 12, name: '野兽派' },
+      { id: 13, name: '无印良品' },
+      { id: 14, name: '飞利浦' },
+      { id: 15, name: '宜家' },
+      { id: 16, name: 'HAY' },
+      { id: 17, name: '吱音' },
+      { id: 18, name: '茶花' }
     ]
   },
   {
@@ -404,13 +371,13 @@ const navCategories = [
     to: { name: 'Products', query: { categoryId: 2 } },
     children: [
       { id: 21, name: '361°' },
-      { id: 22, name: '特步' },
-      { id: 23, name: '匹克' },
-      { id: 24, name: '安踏' },
-      { id: 25, name: '斐乐' },
-      { id: 26, name: '李宁' },
-      { id: 27, name: '阿迪达斯' },
-      { id: 28, name: '耐克' }
+      { id: 22, name: '李宁' },
+      { id: 23, name: '安踏' },
+      { id: 24, name: '特步' },
+      { id: 25, name: '匹克' },
+      { id: 26, name: '斐乐' },
+      { id: 27, name: 'Nike' },
+      { id: 28, name: 'Adidas' }
     ]
   },
   {
@@ -418,10 +385,13 @@ const navCategories = [
     name: '数码电子',
     to: { name: 'Products', query: { categoryId: 3 } },
     children: [
-      { id: 31, name: '手机数码' },
-      { id: 32, name: '电脑办公' },
-      { id: 33, name: '智能设备' },
-      { id: 34, name: '影音娱乐' }
+      { id: 31, name: 'iPhone' },
+      { id: 32, name: '华为' },
+      { id: 33, name: '索尼' },
+      { id: 34, name: '罗技' },
+      { id: 35, name: 'Apple' },
+      { id: 36, name: 'iPad' },
+      { id: 37, name: '罗马仕' }
     ]
   },
   {
@@ -429,10 +399,15 @@ const navCategories = [
     name: '家用电器',
     to: { name: 'Products', query: { categoryId: 4 } },
     children: [
-      { id: 41, name: '大家电' },
-      { id: 42, name: '生活电器' },
-      { id: 43, name: '厨房电器' },
-      { id: 44, name: '个护健康' }
+      { id: 41, name: '海尔' },
+      { id: 42, name: '美的' },
+      { id: 43, name: '格力' },
+      { id: 44, name: '松下' },
+      { id: 45, name: '戴森' },
+      { id: 46, name: '科沃斯' },
+      { id: 47, name: '格兰仕' },
+      { id: 48, name: '老板' },
+      { id: 49, name: '九阳' }
     ]
   },
   {
@@ -440,10 +415,14 @@ const navCategories = [
     name: '家具家装',
     to: { name: 'Products', query: { categoryId: 5 } },
     children: [
-      { id: 51, name: '客厅家具' },
-      { id: 52, name: '卧室家具' },
-      { id: 53, name: '餐厅家具' },
-      { id: 54, name: '灯具灯饰' }
+      { id: 51, name: '顾家家居' },
+      { id: 52, name: '慕思' },
+      { id: 53, name: '全友家居' },
+      { id: 54, name: '曲美家居' },
+      { id: 55, name: '宜家' },
+      { id: 56, name: '索菲亚' },
+      { id: 57, name: '欧普照明' },
+      { id: 58, name: '林氏木业' }
     ]
   },
   {
@@ -451,10 +430,16 @@ const navCategories = [
     name: '美妆个护',
     to: { name: 'Products', query: { categoryId: 6 } },
     children: [
-      { id: 61, name: '面部护肤' },
-      { id: 62, name: '彩妆香水' },
-      { id: 63, name: '个护清洁' },
-      { id: 64, name: '口腔护理' }
+      { id: 61, name: '迪奥' },
+      { id: 62, name: '雅诗兰黛' },
+      { id: 63, name: '香奈儿' },
+      { id: 64, name: 'SK-II' },
+      { id: 65, name: 'Tom' },
+      { id: 66, name: '兰蔻' },
+      { id: 67, name: 'WHOO' },
+      { id: 68, name: 'NARS' },
+      { id: 69, name: '安耐晒' },
+      { id: 70, name: '悦诗风吟' }
     ]
   },
   {
@@ -462,10 +447,14 @@ const navCategories = [
     name: '餐厨水具',
     to: { name: 'Products', query: { categoryId: 7 } },
     children: [
-      { id: 71, name: '餐具厨具' },
-      { id: 72, name: '杯壶水具' },
-      { id: 73, name: '咖啡茶具' },
-      { id: 74, name: '厨房配件' }
+      { id: 71, name: '双立人' },
+      { id: 72, name: '象印' },
+      { id: 73, name: '乐扣乐扣' },
+      { id: 74, name: '苏泊尔' },
+      { id: 75, name: '王麻子' },
+      { id: 76, name: '膳魔师' },
+      { id: 77, name: '炊大皇' },
+      { id: 78, name: '虎牌' }
     ]
   },
   {
@@ -473,10 +462,14 @@ const navCategories = [
     name: '图书文具',
     to: { name: 'Products', query: { categoryId: 8 } },
     children: [
-      { id: 81, name: '图书' },
-      { id: 82, name: '文具' },
-      { id: 83, name: '办公用品' },
-      { id: 84, name: '数码配件' }
+      { id: 81, name: '三体' },
+      { id: 82, name: 'Moleskine' },
+      { id: 83, name: 'LAMY' },
+      { id: 84, name: '樱花' },
+      { id: 85, name: '辉柏嘉' },
+      { id: 86, name: '晨光' },
+      { id: 87, name: '得力' },
+      { id: 88, name: '马可' }
     ]
   }
 ]
@@ -566,6 +559,7 @@ const updatePageTitle = () => {
 }
 
 const handleCategoryEnter = (catId) => {
+  if (isAiDragging.value) return
   if (hideTimer) {
     clearTimeout(hideTimer)
     hideTimer = null
@@ -576,32 +570,24 @@ const handleCategoryEnter = (catId) => {
 let hideTimer = null
 
 const handleCategoryLeave = () => {
+  if (isAiDragging.value) return
   hideTimer = setTimeout(() => {
     hoverCategoryId.value = null
   }, 150)
-}
-
-const handleClickOutside = (e) => {
-  if (moreMenuRef.value && !moreMenuRef.value.contains(e.target)) {
-    showMore.value = false
-  }
 }
 
 onMounted(() => {
   loadSearchHistory()
   loadProductNames()
   window.addEventListener('scroll', handleScroll)
-  document.addEventListener('click', handleClickOutside)
 })
 
 onUnmounted(() => {
   window.removeEventListener('scroll', handleScroll)
-  document.removeEventListener('click', handleClickOutside)
 })
 
 watch(() => route.name, () => {
   updatePageTitle()
-  showMore.value = false
 })
 </script>
 

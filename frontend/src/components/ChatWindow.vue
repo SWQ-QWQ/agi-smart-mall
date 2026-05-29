@@ -25,7 +25,7 @@
         @mouseout="isBtnHovered = false"
         :style="btnPosition"
         :class="[
-          'fixed z-50 flex items-center justify-center',
+          'fixed z-[9999] flex items-center justify-center',
           'w-14 h-14 rounded-full',
           isDragging ? '' : 'transition-all duration-300',
           'hover:scale-110 active:scale-95',
@@ -339,7 +339,7 @@
 </template>
 
 <script setup>
-import { ref, nextTick, watch, onMounted, onUnmounted, computed } from 'vue'
+import { ref, nextTick, watch, onMounted, onUnmounted, computed, provide } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
 import { useAdminStore } from '../stores/admin'
@@ -380,6 +380,9 @@ const currentTop = ref(window.innerHeight - 100)
 const isClicking = ref(false)
 const clickStartPos = ref({ x: 0, y: 0 })
 const chatWindowPosition = ref('right')
+
+// 暴露拖动状态给其他组件
+provide('isAiDragging', isDragging)
 
 const btnPosition = ref({
   left: `${window.innerWidth - 80}px`,

@@ -78,61 +78,55 @@ import { getProducts } from '@/api/productApi'
 
 const countdown = ref({ hours: '00', minutes: '00', seconds: '00' })
 const isFlashSaleActive = ref(true)
-const nextFlashSaleTime = ref('20:00')
+const nextFlashSaleTime = ref('00:30')
 let countdownInterval = null
-
-const flashSaleTimes = [
-  { hour: 10, minute: 0 },
-  { hour: 14, minute: 0 },
-  { hour: 20, minute: 0 }
-]
 
 const updateCountdown = () => {
   const now = new Date()
+  const currentMinutes = now.getHours() * 60 + now.getMinutes()
   
-  for (let i = 0; i < flashSaleTimes.length; i++) {
-    const time = flashSaleTimes[i]
-    const startTime = new Date(now)
-    startTime.setHours(time.hour, time.minute, 0, 0)
+  // 计算当前是第几个半小时段 (每30分钟一场)
+  const totalSegments = 48 // 24小时 * 2 = 48个半小时段
+  const currentSegment = Math.floor(currentMinutes / 30)
+  
+  // 当前场开始时间
+  const startHour = Math.floor(currentSegment * 30 / 60)
+  const startMinute = (currentSegment * 30) % 60
+  const startTime = new Date(now)
+  startTime.setHours(startHour, startMinute, 0, 0)
+  
+  // 当前场结束时间 (30分钟后)
+  const endTime = new Date(startTime)
+  endTime.setMinutes(endTime.getMinutes() + 30)
+  
+  if (now >= startTime && now < endTime) {
+    isFlashSaleActive.value = true
+    const diff = endTime - now
     
-    const endTime = new Date(startTime)
-    endTime.setHours(startTime.getHours() + 2)
+    const hours = Math.floor(diff / (1000 * 60 * 60))
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000)
     
-    if (now >= startTime && now < endTime) {
-      isFlashSaleActive.value = true
-      const diff = endTime - now
-      
-      const hours = Math.floor(diff / (1000 * 60 * 60))
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000)
-      
-      countdown.value = {
-        hours: String(hours).padStart(2, '0'),
-        minutes: String(minutes).padStart(2, '0'),
-        seconds: String(seconds).padStart(2, '0')
-      }
-      
-      const nextIndex = (i + 1) % flashSaleTimes.length
-      nextFlashSaleTime.value = `${String(flashSaleTimes[nextIndex].hour).padStart(2, '0')}:${String(flashSaleTimes[nextIndex].minute).padStart(2, '0')}`
-      
-      return
+    countdown.value = {
+      hours: String(hours).padStart(2, '0'),
+      minutes: String(minutes).padStart(2, '0'),
+      seconds: String(seconds).padStart(2, '0')
     }
-  }
-  
-  isFlashSaleActive.value = false
-  
-  for (let i = 0; i < flashSaleTimes.length; i++) {
-    const time = flashSaleTimes[i]
-    const startTime = new Date(now)
-    startTime.setHours(time.hour, time.minute, 0, 0)
     
-    if (now < startTime) {
-      nextFlashSaleTime.value = `${String(time.hour).padStart(2, '0')}:${String(time.minute).padStart(2, '0')}`
-      return
-    }
+    // 下一场
+    const nextSegment = (currentSegment + 1) % totalSegments
+    const nextStartHour = Math.floor(nextSegment * 30 / 60)
+    const nextStartMinute = (nextSegment * 30) % 60
+    nextFlashSaleTime.value = `${String(nextStartHour).padStart(2, '0')}:${String(nextStartMinute).padStart(2, '0')}`
+  } else {
+    isFlashSaleActive.value = false
+    
+    // 找到下一场
+    const nextSegment = (currentSegment + 1) % totalSegments
+    const nextStartHour = Math.floor(nextSegment * 30 / 60)
+    const nextStartMinute = (nextSegment * 30) % 60
+    nextFlashSaleTime.value = `${String(nextStartHour).padStart(2, '0')}:${String(nextStartMinute).padStart(2, '0')}`
   }
-  
-  nextFlashSaleTime.value = `${String(flashSaleTimes[0].hour).padStart(2, '0')}:${String(flashSaleTimes[0].minute).padStart(2, '0')}`
 }
 
 const flashSaleProducts = ref([])

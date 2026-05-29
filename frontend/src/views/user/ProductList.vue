@@ -123,56 +123,86 @@ const selectedCategoryId = computed(() => {
 
 const categoryTree = [
   { id: 1, name: '生活家居', children: [
-    { id: 11, name: '收纳整理' },
-    { id: 12, name: '香薰蜡烛' },
-    { id: 13, name: '家居饰品' },
-    { id: 14, name: '清洁用品' }
+    { id: 11, name: '太力' },
+    { id: 12, name: '野兽派' },
+    { id: 13, name: '无印良品' },
+    { id: 14, name: '飞利浦' },
+    { id: 15, name: '宜家' },
+    { id: 16, name: 'HAY' },
+    { id: 17, name: '吱音' },
+    { id: 18, name: '茶花' }
   ]},
   { id: 2, name: '运动户外', children: [
     { id: 21, name: '361°' },
-    { id: 22, name: '特步' },
-    { id: 23, name: '匹克' },
-    { id: 24, name: '安踏' },
-    { id: 25, name: '斐乐' },
-    { id: 26, name: '李宁' },
-    { id: 27, name: '阿迪达斯' },
-    { id: 28, name: '耐克' }
+    { id: 22, name: '李宁' },
+    { id: 23, name: '安踏' },
+    { id: 24, name: '特步' },
+    { id: 25, name: '匹克' },
+    { id: 26, name: '斐乐' },
+    { id: 27, name: 'Nike' },
+    { id: 28, name: 'Adidas' }
   ]},
   { id: 3, name: '数码电子', children: [
-    { id: 31, name: '手机数码' },
-    { id: 32, name: '电脑办公' },
-    { id: 33, name: '智能设备' },
-    { id: 34, name: '影音娱乐' }
+    { id: 31, name: 'iPhone' },
+    { id: 32, name: '华为' },
+    { id: 33, name: '索尼' },
+    { id: 34, name: '罗技' },
+    { id: 35, name: 'Apple' },
+    { id: 36, name: 'iPad' },
+    { id: 37, name: '罗马仕' }
   ]},
   { id: 4, name: '家用电器', children: [
-    { id: 41, name: '大家电' },
-    { id: 42, name: '生活电器' },
-    { id: 43, name: '厨房电器' },
-    { id: 44, name: '个护健康' }
+    { id: 41, name: '海尔' },
+    { id: 42, name: '美的' },
+    { id: 43, name: '格力' },
+    { id: 44, name: '松下' },
+    { id: 45, name: '戴森' },
+    { id: 46, name: '科沃斯' },
+    { id: 47, name: '格兰仕' },
+    { id: 48, name: '老板' },
+    { id: 49, name: '九阳' }
   ]},
   { id: 5, name: '家具家装', children: [
-    { id: 51, name: '客厅家具' },
-    { id: 52, name: '卧室家具' },
-    { id: 53, name: '餐厅家具' },
-    { id: 54, name: '灯具灯饰' }
+    { id: 51, name: '顾家家居' },
+    { id: 52, name: '慕思' },
+    { id: 53, name: '全友家居' },
+    { id: 54, name: '曲美家居' },
+    { id: 55, name: '宜家' },
+    { id: 56, name: '索菲亚' },
+    { id: 57, name: '欧普照明' },
+    { id: 58, name: '林氏木业' }
   ]},
   { id: 6, name: '美妆个护', children: [
-    { id: 61, name: '面部护肤' },
-    { id: 62, name: '彩妆香水' },
-    { id: 63, name: '个护清洁' },
-    { id: 64, name: '口腔护理' }
+    { id: 61, name: '迪奥' },
+    { id: 62, name: '雅诗兰黛' },
+    { id: 63, name: '香奈儿' },
+    { id: 64, name: 'SK-II' },
+    { id: 65, name: 'Tom' },
+    { id: 66, name: '兰蔻' },
+    { id: 67, name: 'WHOO' },
+    { id: 68, name: 'NARS' },
+    { id: 69, name: '安耐晒' },
+    { id: 70, name: '悦诗风吟' }
   ]},
   { id: 7, name: '餐厨水具', children: [
-    { id: 71, name: '餐具厨具' },
-    { id: 72, name: '杯壶水具' },
-    { id: 73, name: '咖啡茶具' },
-    { id: 74, name: '厨房配件' }
+    { id: 71, name: '双立人' },
+    { id: 72, name: '象印' },
+    { id: 73, name: '乐扣乐扣' },
+    { id: 74, name: '苏泊尔' },
+    { id: 75, name: '王麻子' },
+    { id: 76, name: '膳魔师' },
+    { id: 77, name: '炊大皇' },
+    { id: 78, name: '虎牌' }
   ]},
   { id: 8, name: '图书文具', children: [
-    { id: 81, name: '图书' },
-    { id: 82, name: '文具' },
-    { id: 83, name: '文创周边' },
-    { id: 84, name: '办公用品' }
+    { id: 81, name: '三体' },
+    { id: 82, name: 'Moleskine' },
+    { id: 83, name: 'LAMY' },
+    { id: 84, name: '樱花' },
+    { id: 85, name: '辉柏嘉' },
+    { id: 86, name: '晨光' },
+    { id: 87, name: '得力' },
+    { id: 88, name: '马可' }
   ]}
 ]
 
@@ -269,15 +299,31 @@ const goToPage = (page) => {
 const applySorting = () => {
   let sorted = [...allProducts.value]
   
-  if (sortBy.value === 'price-asc') {
-    sorted.sort((a, b) => a.price - b.price)
-  } else if (sortBy.value === 'price-desc') {
-    sorted.sort((a, b) => b.price - a.price)
-  } else if (sortBy.value === 'sales') {
-    sorted.sort((a, b) => (b.sales || 0) - (a.sales || 0))
-  } else if (sortBy.value === 'newest') {
-    sorted.sort(() => Math.random() - 0.5)
-  }
+  const keyword = route.query.keyword
+  
+  sorted.sort((a, b) => {
+    let result = 0
+    
+    if (keyword) {
+      const aMatch = a.title?.toLowerCase().includes(keyword.toLowerCase()) ? 0 : 1
+      const bMatch = b.title?.toLowerCase().includes(keyword.toLowerCase()) ? 0 : 1
+      result = aMatch - bMatch
+    }
+    
+    if (result === 0) {
+      if (sortBy.value === 'price-asc') {
+        result = a.price - b.price
+      } else if (sortBy.value === 'price-desc') {
+        result = b.price - a.price
+      } else if (sortBy.value === 'sales') {
+        result = (b.sales || 0) - (a.sales || 0)
+      } else if (sortBy.value === 'newest') {
+        result = Math.random() - 0.5
+      }
+    }
+    
+    return result
+  })
   
   allProducts.value = sorted
 }

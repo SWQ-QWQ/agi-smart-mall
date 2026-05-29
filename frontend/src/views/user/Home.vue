@@ -22,24 +22,10 @@
             />
             <button
               @click="handleSearch"
-              class="bg-orange-500 text-white px-8 py-3 rounded-r-full hover:bg-orange-600 transition-colors flex items-center space-x-2"
+              class="bg-orange-500 text-white px-8 py-3 rounded-r-full hover:bg-orange-600 transition-colors"
             >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 70 11-14 0 7 70 0114 0z"></path>
-              </svg>
               <span>搜索</span>
             </button>
-          </div>
-          <div class="flex items-center space-x-4 mt-4 px-2">
-            <span class="text-xs text-gray-400">热门搜索：</span>
-            <router-link
-              v-for="keyword in hotKeywords"
-              :key="keyword"
-              :to="{ name: 'Products', query: { keyword } }"
-              class="text-xs text-gray-600 hover:text-orange-500 transition-colors"
-            >
-              {{ keyword }}
-            </router-link>
           </div>
         </div>
       </div>
@@ -58,24 +44,24 @@
               <p class="text-4xl font-bold mb-2">超级品牌日</p>
               <p class="text-xl opacity-90 mb-6">精选大牌好物 全场5折起</p>
               <div class="flex space-x-4">
-                <button class="px-8 py-3 bg-white text-orange-500 rounded-full font-medium hover:bg-gray-100 transition-all shadow-lg">
+                <router-link to="/flash-sale" class="px-8 py-3 bg-white text-orange-500 rounded-full font-medium hover:bg-gray-100 transition-all shadow-lg">
                   立即抢购
-                </button>
+                </router-link>
               </div>
             </div>
             <div class="flex space-x-4">
-              <div class="bg-white/20 backdrop-blur rounded-xl p-4 text-center text-white min-w-[120px]">
+              <router-link to="/products?categoryId=3" class="bg-white/20 backdrop-blur rounded-xl p-4 text-center text-white min-w-[120px] hover:bg-white/30 transition-colors cursor-pointer">
                 <div class="text-3xl mb-1">📱</div>
                 <p class="text-sm">数码狂欢</p>
-              </div>
-              <div class="bg-white/20 backdrop-blur rounded-xl p-4 text-center text-white min-w-[120px]">
+              </router-link>
+              <router-link to="/products?categoryId=2" class="bg-white/20 backdrop-blur rounded-xl p-4 text-center text-white min-w-[120px] hover:bg-white/30 transition-colors cursor-pointer">
                 <div class="text-3xl mb-1">👟</div>
                 <p class="text-sm">运动专场</p>
-              </div>
-              <div class="bg-white/20 backdrop-blur rounded-xl p-4 text-center text-white min-w-[120px]">
+              </router-link>
+              <router-link to="/products?categoryId=6" class="bg-white/20 backdrop-blur rounded-xl p-4 text-center text-white min-w-[120px] hover:bg-white/30 transition-colors cursor-pointer">
                 <div class="text-3xl mb-1">💄</div>
                 <p class="text-sm">美妆特惠</p>
-              </div>
+              </router-link>
             </div>
           </div>
         </div>
@@ -258,73 +244,59 @@ import ProductCard from '@/components/ProductCard.vue'
 const router = useRouter()
 const searchQuery = ref('')
 
-const hotKeywords = ['无线耳机', '运动鞋', '苹果手机', '口红', '笔记本', '蓝牙音箱', '电饭煲', '净水器']
-
 // 秒杀倒计时
 const countdown = ref({ hours: '00', minutes: '00', seconds: '00' })
 const isFlashSaleActive = ref(true)
-const nextFlashSaleTime = ref('20:00')
+const nextFlashSaleTime = ref('00:30')
 let countdownInterval = null
-
-const flashSaleTimes = [
-  { hour: 10, minute: 0 },
-  { hour: 14, minute: 0 },
-  { hour: 20, minute: 0 }
-]
 
 const updateCountdown = () => {
   const now = new Date()
+  const currentMinutes = now.getHours() * 60 + now.getMinutes()
   
-  for (let i = 0; i < flashSaleTimes.length; i++) {
-    const time = flashSaleTimes[i]
-    const startTime = new Date(now)
-    startTime.setHours(time.hour, time.minute, 0, 0)
+  const totalSegments = 48
+  const currentSegment = Math.floor(currentMinutes / 30)
+  
+  const startHour = Math.floor(currentSegment * 30 / 60)
+  const startMinute = (currentSegment * 30) % 60
+  const startTime = new Date(now)
+  startTime.setHours(startHour, startMinute, 0, 0)
+  
+  const endTime = new Date(startTime)
+  endTime.setMinutes(endTime.getMinutes() + 30)
+  
+  if (now >= startTime && now < endTime) {
+    isFlashSaleActive.value = true
+    const diff = endTime - now
     
-    const endTime = new Date(startTime)
-    endTime.setHours(startTime.getHours() + 2)
+    const hours = Math.floor(diff / (1000 * 60 * 60))
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000)
     
-    if (now >= startTime && now < endTime) {
-      isFlashSaleActive.value = true
-      const diff = endTime - now
-      
-      const hours = Math.floor(diff / (1000 * 60 * 60))
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000)
-      
-      countdown.value = {
-        hours: String(hours).padStart(2, '0'),
-        minutes: String(minutes).padStart(2, '0'),
-        seconds: String(seconds).padStart(2, '0')
-      }
-      
-      const nextIndex = (i + 1) % flashSaleTimes.length
-      nextFlashSaleTime.value = `${String(flashSaleTimes[nextIndex].hour).padStart(2, '0')}:${String(flashSaleTimes[nextIndex].minute).padStart(2, '0')}`
-      
-      return
+    countdown.value = {
+      hours: String(hours).padStart(2, '0'),
+      minutes: String(minutes).padStart(2, '0'),
+      seconds: String(seconds).padStart(2, '0')
     }
-  }
-  
-  isFlashSaleActive.value = false
-  
-  for (let i = 0; i < flashSaleTimes.length; i++) {
-    const time = flashSaleTimes[i]
-    const startTime = new Date(now)
-    startTime.setHours(time.hour, time.minute, 0, 0)
     
-    if (now < startTime) {
-      nextFlashSaleTime.value = `${String(time.hour).padStart(2, '0')}:${String(time.minute).padStart(2, '0')}`
-      return
-    }
+    const nextSegment = (currentSegment + 1) % totalSegments
+    const nextStartHour = Math.floor(nextSegment * 30 / 60)
+    const nextStartMinute = (nextSegment * 30) % 60
+    nextFlashSaleTime.value = `${String(nextStartHour).padStart(2, '0')}:${String(nextStartMinute).padStart(2, '0')}`
+  } else {
+    isFlashSaleActive.value = false
+    
+    const nextSegment = (currentSegment + 1) % totalSegments
+    const nextStartHour = Math.floor(nextSegment * 30 / 60)
+    const nextStartMinute = (nextSegment * 30) % 60
+    nextFlashSaleTime.value = `${String(nextStartHour).padStart(2, '0')}:${String(nextStartMinute).padStart(2, '0')}`
   }
-  
-  nextFlashSaleTime.value = `${String(flashSaleTimes[0].hour).padStart(2, '0')}:${String(flashSaleTimes[0].minute).padStart(2, '0')}`
 }
 
 const flashSaleProducts = ref([])
 const hotProducts = ref([])
 const recommendedProducts = ref([])
 
-// 分页相关
 const currentPage = ref(1)
 const isLoading = ref(false)
 const hasMore = ref(true)
@@ -411,7 +383,6 @@ const handleSearch = () => {
   }
 }
 
-// 滚动加载
 const handleScroll = () => {
   if (isLoading.value || !hasMore.value) return
   
