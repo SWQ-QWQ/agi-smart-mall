@@ -9,7 +9,9 @@ router.post('/chat', authenticateToken, async (req, res) => {
   try {
     const { messages } = req.body
     const userId = req.userId
-
+    
+    console.log('[AI路由] 收到聊天请求, userId:', userId)
+    
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({
         success: false,
@@ -19,8 +21,11 @@ router.post('/chat', authenticateToken, async (req, res) => {
 
     const user = await User.findByPk(userId, { attributes: ['role'] })
     const userRole = user?.role || 'user'
+    
+    console.log('[AI路由] 用户角色:', userRole)
 
     const result = await chat(messages, userId, userRole)
+    console.log('[AI路由] AI响应结果, 商品数:', result.products?.length || 0)
     res.json({
       success: true,
       data: result,

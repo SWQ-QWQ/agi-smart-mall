@@ -2,11 +2,28 @@ export const adminTools = [
   {
     type: 'function',
     function: {
-      name: 'get_dashboard_stats',
-      description: '获取仪表盘统计数据，包括总用户数、总商品数、总订单数、今日订单数、销售额等',
+      name: 'search_products',
+      description: '根据关键词搜索商品，支持分类和价格筛选。搜索会同时匹配商品标题、描述以及分类名称。',
       parameters: {
         type: 'object',
-        properties: {},
+        properties: {
+          keyword: {
+            type: 'string',
+            description: '搜索关键词，可以是商品名称、描述或分类名称，如"耳机"、"T恤"、"电子产品"、"家居"'
+          },
+          categoryId: {
+            type: 'integer',
+            description: '分类ID（可选）：1=电子产品，2=服装，3=家居'
+          },
+          minPrice: {
+            type: 'number',
+            description: '最低价格（可选）'
+          },
+          maxPrice: {
+            type: 'number',
+            description: '最高价格（可选）'
+          }
+        },
         required: []
       }
     }
@@ -14,40 +31,11 @@ export const adminTools = [
   {
     type: 'function',
     function: {
-      name: 'search_products',
-      description: '搜索商品，返回客观数据（名称、价格、库存、状态、销量），用于商品管理',
+      name: 'get_dashboard_stats',
+      description: '获取仪表盘统计数据，包括总用户数、总商品数、总订单数、今日订单数、销售额等',
       parameters: {
         type: 'object',
-        properties: {
-          keyword: {
-            type: 'string',
-            description: '搜索关键词（商品名称或描述）'
-          },
-          categoryId: {
-            type: 'integer',
-            description: '分类ID筛选'
-          },
-          status: {
-            type: 'string',
-            description: '商品状态筛选（active/inactive）'
-          },
-          minPrice: {
-            type: 'number',
-            description: '最低价格'
-          },
-          maxPrice: {
-            type: 'number',
-            description: '最高价格'
-          },
-          page: {
-            type: 'integer',
-            description: '页码（默认1）'
-          },
-          limit: {
-            type: 'integer',
-            description: '每页数量（默认10）'
-          }
-        },
+        properties: {},
         required: []
       }
     }
@@ -235,6 +223,69 @@ export const adminTools = [
           }
         },
         required: ['productId']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'update_product_price',
+      description: '修改商品价格',
+      parameters: {
+        type: 'object',
+        properties: {
+          productId: {
+            type: 'integer',
+            description: '商品ID'
+          },
+          newPrice: {
+            type: 'number',
+            description: '新价格'
+          }
+        },
+        required: ['productId', 'newPrice']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'update_product_stock',
+      description: '修改商品库存',
+      parameters: {
+        type: 'object',
+        properties: {
+          productId: {
+            type: 'integer',
+            description: '商品ID'
+          },
+          newStock: {
+            type: 'integer',
+            description: '新库存数量'
+          }
+        },
+        required: ['productId', 'newStock']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'update_product_status',
+      description: '上架或下架商品',
+      parameters: {
+        type: 'object',
+        properties: {
+          productId: {
+            type: 'integer',
+            description: '商品ID'
+          },
+          status: {
+            type: 'string',
+            description: '目标状态（active=上架，inactive=下架）'
+          }
+        },
+        required: ['productId', 'status']
       }
     }
   },

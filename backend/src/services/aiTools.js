@@ -366,5 +366,17 @@ export const tools = [
         required: ['oldPassword', 'newPassword']
       }
     }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_promotions',
+      description: '获取当前所有有效的促销活动列表',
+      parameters: {
+        type: 'object',
+        properties: {},
+        required: []
+      }
+    }
   }
 ]

@@ -124,34 +124,56 @@
                   : 'bg-white text-gray-800 rounded-bl-md shadow-sm'
               ]"
             >
-              <p class="text-sm whitespace-pre-wrap">{{ msg.content }}</p>
-              <!-- 显示商品卡片 -->
-              <div v-if="msg.products && msg.products.length > 0" class="mt-3">
+              <div class="text-sm whitespace-pre-wrap" v-html="renderMessageContent(msg.content)"></div>
+              <!-- 显示商品卡片：管理员模式下不渲染卡片 -->
+              <div v-if="!isAdminMode && msg.products && msg.products.length > 0" class="mt-3">
                 <div class="grid grid-cols-1 gap-2">
                   <div 
                     v-for="product in msg.products" 
                     :key="product.id"
-                    class="flex items-center gap-3 p-2 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
-                    @click="goToProduct(product.id)"
+                    class="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                   >
-                    <div class="relative w-16 h-16 bg-gray-100 flex items-center justify-center flex-shrink-0 rounded overflow-hidden">
-                      <img 
-                        v-if="product.image" 
-                        :src="product.image" 
-                        :alt="product.title" 
-                        class="w-full h-full object-cover"
-                        @error="handleProductImageError"
-                      />
-                      <span 
-                        :class="[
-                          'w-full h-full flex items-center justify-center text-2xl text-gray-400',
-                          product.image ? 'hidden' : ''
-                        ]"
-                      >🛍️</span>
-                    </div>
-                    <div class="flex-1 min-w-0">
-                      <p class="text-sm font-medium text-gray-800 line-clamp-2">{{ product.title }}</p>
-                      <p class="text-red-500 font-bold mt-1">¥{{ product.price }}</p>
+                    <div class="flex items-center gap-3">
+                      <div 
+                        class="relative w-20 h-20 bg-gray-100 flex items-center justify-center flex-shrink-0 rounded overflow-hidden cursor-pointer"
+                        @click="goToProduct(product.id)"
+                      >
+                        <img 
+                          v-if="product.image" 
+                          :src="getProductImageUrl(product.image)" 
+                          :alt="product.title" 
+                          class="w-full h-full object-cover"
+                          @error="handleProductImageError"
+                          loading="lazy"
+                        />
+                        <span 
+                          :class="[
+                            'w-full h-full flex items-center justify-center text-3xl text-gray-400',
+                            product.image ? 'hidden' : ''
+                          ]"
+                        >🛍️</span>
+                      </div>
+                      <div class="flex-1 min-w-0">
+                        <p 
+                          class="text-sm font-medium text-gray-800 line-clamp-2 cursor-pointer hover:text-taobao-orange"
+                          @click="goToProduct(product.id)"
+                        >{{ product.title }}</p>
+                        <p class="text-red-500 font-bold mt-1 text-lg">¥{{ product.price }}</p>
+                        <div class="flex items-center gap-2 mt-2">
+                          <button 
+                            @click.stop="addToCart(product)"
+                            class="px-3 py-1 bg-taobao-orange text-white text-xs rounded-full hover:bg-orange-600 transition-colors"
+                          >
+                            加入购物车
+                          </button>
+                          <button 
+                            @click="goToProduct(product.id)"
+                            class="px-3 py-1 bg-gray-200 text-gray-700 text-xs rounded-full hover:bg-gray-300 transition-colors"
+                          >
+                            查看详情
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -437,7 +459,6 @@ let rafId = null
 const userSuggestions = [
   '帮我推荐蓝牙耳机',
   '查看我的购物车',
-  '有什么促销活动',
   '查看我的订单',
   '查看我的账户信息'
 ]
@@ -602,16 +623,22 @@ const openChat = () => {
         messages: [{ role: 'user', content: '你好' }]
       })
     })
-    .then(r => r.json())
+    .then(r => {
+      console.log('问候语响应状态:', r.status)
+      return r.json()
+    })
     .then(res => {
+      console.log('问候语完整响应:', res)
       isLoading.value = false
-      if (res.success && res.data.reply) {
+      if (res.success && res.data && res.data.reply) {
+        console.log('问候语获取成功:', res.data.reply)
         messages.value.push({
           role: 'assistant',
           content: stripMarkdown(res.data.reply),
           timestamp: new Date()
         })
       } else {
+        console.error('问候语获取失败:', res)
         messages.value.push({
           role: 'assistant',
           content: isAdminMode.value ? adminWelcomeMessage : userWelcomeMessage,
@@ -622,6 +649,7 @@ const openChat = () => {
     })
     .catch(error => {
       isLoading.value = false
+      console.error('问候语请求异常:', error)
       messages.value.push({
         role: 'assistant',
         content: isAdminMode.value ? adminWelcomeMessage : userWelcomeMessage,
@@ -652,6 +680,7 @@ const formatTime = (timestamp) => {
 }
 
 const stripMarkdown = (text) => {
+  // 重要：保留 Markdown 链接不再被删除，而是保留用于 renderMessageContent 解析
   if (!text) return ''
   return text
     .replace(/\*\*/g, '')
@@ -660,14 +689,154 @@ const stripMarkdown = (text) => {
     .replace(/`{1,3}[^`]*`{1,3}/g, '')
     .replace(/^\s*[-*+]\s+/gm, '')
     .replace(/^\s*\d+\.\s+/gm, '')
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    // 注意：不删除 [链接](url) 格式，保留用于后续解析
     .replace(/!\[([^\]]*)\]\([^)]+\)/g, '')
 }
 
-const goToProduct = (productId) => {
+const renderMessageContent = (text) => {
+  if (!text) return ''
+  
+  console.log('===== 渲染消息内容 =====')
+  console.log('原始文本:', text)
+  
+  let rendered = text
+  
+  const linkColorClass = isAdminMode.value ? 'text-blue-600 hover:text-blue-800' : 'text-taobao-orange hover:text-orange-600'
+  
+  rendered = rendered.replace(/\[([^\]]+)\]\((\/[^)]+)\)/g, (match, matchedText, matchedPath) => {
+    console.log('匹配到 Markdown 链接:', { matchedText, matchedPath })
+    
+    // 处理商品链接
+    const productMatch = matchedPath.match(/^\/product\/(\d+)$/)
+    if (productMatch) {
+      return `<a href="javascript:void(0)" class="${linkColorClass} hover:underline" onclick="window.__goToProduct__(${productMatch[1]})">${matchedText}</a>`
+    }
+    
+    // 处理管理页面链接 (带查询参数的)
+    const adminMatch = matchedPath.match(/^(\/admin\/[^?#]+)(\?[^#]*)?(#.*)?$/)
+    if (adminMatch) {
+      const cleanPath = adminMatch[1]
+      const query = adminMatch[2] || ''
+      const hash = adminMatch[3] || ''
+      const fullPath = cleanPath + query + hash
+      return `<a href="javascript:void(0)" class="${linkColorClass} hover:underline" onclick="window.__goToPath__('${fullPath}')">${matchedText}</a>`
+    }
+    
+    // 处理其他路径
+    return `<a href="javascript:void(0)" class="${linkColorClass} hover:underline" onclick="window.__goToPath__('${matchedPath}')">${matchedText}</a>`
+  })
+  
+  // 处理普通文本中的 /product/xxx 格式
+  rendered = rendered.replace(/\/product\/(\d+)/g, (match, productId) => {
+    console.log('匹配到 product 链接:', productId)
+    return `<a href="javascript:void(0)" class="${linkColorClass} hover:underline" onclick="window.__goToProduct__(${productId})">/product/${productId}</a>`
+  })
+  
+  // 处理换行
+  rendered = rendered.replace(/\n/g, '<br>')
+  
+  console.log('渲染结果:', rendered)
+  return rendered
+}
+
+// 全局函数供 v-html 调用
+window.__goToPath__ = (path) => {
+  console.log('跳转到路径:', path)
+  console.log('当前是否管理员模式:', isAdminMode.value)
+  if (path) {
+    // 确保路径格式正确
+    let cleanPath = path
+    if (!cleanPath.startsWith('/')) {
+      cleanPath = '/' + cleanPath
+    }
+    
+    console.log('清理后的路径:', cleanPath)
+    
+    router.push(cleanPath).then(() => {
+      console.log('路由跳转成功')
+      closeChat()
+    }).catch(err => {
+      console.error('路由跳转失败:', err)
+      console.error('失败的路径:', cleanPath)
+      closeChat()
+    })
+  }
+}
+
+// 全局函数供 v-html 调用
+window.__goToProduct__ = (productId) => {
+  console.log('跳转到商品:', productId)
   if (productId) {
+    router.push(`/product/${productId}`).then(() => {
+      closeChat()
+    }).catch(err => {
+      console.error('路由跳转失败:', err)
+      closeChat()
+    })
+  }
+}
+
+window.__goToAddress__ = () => {
+  console.log('跳转到地址管理')
+  router.push('/address').then(() => {
     closeChat()
-    router.push(`/product/${productId}`)
+  }).catch(err => {
+    console.error('路由跳转失败:', err)
+    closeChat()
+  })
+}
+
+const goToProduct = (productId) => {
+  console.log('goToProduct 被调用:', productId)
+  if (productId) {
+    router.push(`/product/${productId}`).then(() => {
+      closeChat()
+    }).catch(err => {
+      console.error('路由跳转失败:', err)
+      closeChat()
+    })
+  }
+}
+
+const addToCart = async (product) => {
+  try {
+    console.log('[加购] 开始加入购物车')
+    console.log('[加购] 商品对象:', product)
+    console.log('[加购] 商品ID:', product.id, '类型:', typeof product.id)
+    
+    const token = localStorage.getItem('token')
+    if (!token) {
+      showToastMessage('请先登录')
+      return
+    }
+
+    const response = await fetch('http://localhost:3000/api/cart', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        productId: Number(product.id),
+        quantity: 1
+      })
+    })
+
+    console.log('[加购] 响应状态:', response.status)
+    const data = await response.json()
+    console.log('[加购] 响应数据:', data)
+    
+    if (data.success) {
+      showToastMessage('已加入购物车 ✅')
+      // 刷新购物车数量
+      await cartStore.fetchCart()
+    } else {
+      console.warn('[加购] 加购失败:', data.message)
+      showToastMessage(data.message || '加入购物车失败')
+    }
+  } catch (error) {
+    console.error('[加购] 加入购物车失败:', error)
+    showToastMessage('加入购物车失败')
   }
 }
 
@@ -677,6 +846,12 @@ const handleAvatarError = (e) => {
   if (nextSibling) {
     nextSibling.style.display = 'flex'
   }
+}
+
+const getProductImageUrl = (image) => {
+  if (!image) return ''
+  if (image.startsWith('http')) return image
+  return `http://localhost:3000${image}`
 }
 
 const handleProductImageError = (e) => {
@@ -732,31 +907,47 @@ const sendMessage = (text = null) => {
       messages: conversationHistory
     })
   })
-  .then(r => r.json())
+  .then(r => {
+    console.log('AI 响应状态:', r.status)
+    return r.json()
+  })
   .then(res => {
+    console.log('AI 完整响应:', res)
     isLoading.value = false
     
     if (res.success) {
-      const reply = stripMarkdown(res.data.reply)
+      console.log('AI 响应成功:', res.data)
       
-      const messageData = {
-        role: 'assistant',
-        content: reply,
-        timestamp: new Date()
-      }
-      
-      if (res.data.products && res.data.products.length > 0) {
-        console.log('推荐商品:', res.data.products)
-        messageData.products = res.data.products
-      }
-      
-      if (res.data.actions && res.data.actions.length > 0) {
-        res.data.actions.forEach(action => {
-          handleAction(action)
+      if (res.data && res.data.reply) {
+        const reply = stripMarkdown(res.data.reply)
+        console.log('AI 回复内容:', reply)
+        
+        const messageData = {
+          role: 'assistant',
+          content: reply,
+          timestamp: new Date()
+        }
+        
+        if (res.data.products && res.data.products.length > 0) {
+          console.log('推荐商品:', res.data.products)
+          messageData.products = res.data.products
+        }
+        
+        if (res.data.actions && res.data.actions.length > 0) {
+          res.data.actions.forEach(action => {
+            handleAction(action)
+          })
+        }
+
+        messages.value.push(messageData)
+      } else {
+        console.error('AI 响应数据异常: res.data.reply 不存在', res.data)
+        messages.value.push({
+          role: 'assistant',
+          content: '抱歉，AI 回复数据异常，请稍后重试。',
+          timestamp: new Date()
         })
       }
-
-      messages.value.push(messageData)
     } else {
       console.error('AI 请求失败:', res.message)
       messages.value.push({
@@ -769,15 +960,15 @@ const sendMessage = (text = null) => {
     scrollToBottom()
   })
   .catch(error => {
-    isLoading.value = false
-    console.error('AI 请求失败:', error)
-    messages.value.push({
-      role: 'assistant',
-      content: '网络错误，请稍后重试。',
-      timestamp: new Date()
+      isLoading.value = false
+      console.error('AI 请求异常:', error)
+      messages.value.push({
+        role: 'assistant',
+        content: '抱歉，服务暂时不可用，请稍后重试',
+        timestamp: new Date()
+      })
+      scrollToBottom()
     })
-    scrollToBottom()
-  })
 }
 
 const showBubbleTip = (message) => {
@@ -828,7 +1019,10 @@ const checkCartPage = () => {
 }
 
 const handleAction = async (action) => {
-  switch (action.type) {
+  // 处理字符串类型的 action（后端返回的是字符串数组）
+  const actionType = typeof action === 'string' ? action : action.type
+  
+  switch (actionType) {
     case 'view_cart':
       closeChat()
       router.push('/cart')
@@ -857,6 +1051,15 @@ const handleAction = async (action) => {
         router.push(`/product/${action.productId}`)
       }
       break
+    case 'refreshCart':
+      await cartStore.fetchCart()
+      break
+    case 'refreshOrders':
+      // 刷新订单列表（如果需要）
+      break
+    case 'showProducts':
+      // 显示商品卡片（已在消息中自动显示）
+      break
     case 'update_email':
       showEmailModal.value = true
       break
@@ -867,6 +1070,7 @@ const handleAction = async (action) => {
       showPasswordModal.value = true
       break
     default:
+      // 忽略未知的 action
       break
   }
 }

@@ -24,9 +24,19 @@ export const getMyCart = async (req, res) => {
 
 export const addToCart = async (req, res) => {
   try {
-    const { product_id, quantity } = req.body
+    const { product_id, productId, quantity } = req.body
+    
+    // 同时支持 product_id 和 productId 两种格式
+    const productIdValue = product_id || productId
+    
+    if (!productIdValue) {
+      return res.status(400).json({
+        success: false,
+        message: '缺少商品ID参数'
+      })
+    }
 
-    const product = await Product.findByPk(product_id)
+    const product = await Product.findByPk(productIdValue)
     if (!product) {
       return res.status(404).json({
         success: false,
@@ -35,7 +45,7 @@ export const addToCart = async (req, res) => {
     }
 
     const existingCartItem = await Cart.findOne({
-      where: { user_id: req.userId, product_id }
+      where: { user_id: req.userId, product_id: productIdValue }
     })
 
     let cartItem
@@ -46,7 +56,7 @@ export const addToCart = async (req, res) => {
     } else {
       cartItem = await Cart.create({
         user_id: req.userId,
-        product_id,
+        product_id: productIdValue,
         quantity: quantity || 1,
         selected: true
       })

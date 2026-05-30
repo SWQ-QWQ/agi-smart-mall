@@ -1,4 +1,4 @@
-import { Product, Cart, Order, OrderItem, Address, Category, User, sequelize } from '../models/index.js'
+import { Product, Cart, Order, OrderItem, Address, Category, User, Promotion, sequelize } from '../models/index.js'
 import { tools } from './aiTools.js'
 import { adminTools, executeAdminTool } from './adminAiService.js'
 import { Op } from 'sequelize'
@@ -156,6 +156,41 @@ const findCartItemByContext = async (args, userId) => {
   return { success: false, message: '未找到匹配的购物车项' }
 }
 
+// 促销活动查询
+const getPromotions = async () => {
+  try {
+    const promotions = await Promotion.findAll({
+      where: { status: 'active' },
+      order: [['created_at', 'DESC']]
+    })
+
+    if (promotions.length === 0) {
+      return {
+        success: true,
+        data: [],
+        message: '当前没有促销活动',
+        summary: '目前没有正在进行的促销活动，请留意后续活动通知～',
+        actions: []
+      }
+    }
+
+    const promoSummary = promotions.map(p =>
+      `${p.title}${p.description ? '：' + p.description : ''}${p.end_time ? '（截止' + new Date(p.end_time).toLocaleDateString('zh-CN') + '）' : ''}`
+    ).join('；')
+
+    return {
+      success: true,
+      data: promotions,
+      message: '获取促销活动成功',
+      summary: `当前有 ${promotions.length} 个促销活动：${promoSummary}`,
+      actions: []
+    }
+  } catch (error) {
+    console.error('获取促销活动失败:', error)
+    return { success: false, message: '获取促销活动失败' }
+  }
+}
+
 // 工具执行函数
 const executeTool = async (toolName, toolArguments, userId) => {
   const ctx = getSessionContext(userId)
@@ -183,6 +218,15 @@ const executeTool = async (toolName, toolArguments, userId) => {
         if (keyword) {
           const keywordParts = keyword.split(/[\s,.，、]+/).filter(part => part.length > 0)
           const allKeywords = [...keywordParts]
+
+          for (const part of keywordParts) {
+            if (part.length >= 4) {
+              for (let k = 0; k <= part.length - 2; k++) {
+                const sub = part.slice(k, k + 2)
+                if (!allKeywords.includes(sub)) allKeywords.push(sub)
+              }
+            }
+          }
 
           for (let i = 0; i < keywordParts.length; i++) {
             for (let j = i + 1; j <= keywordParts.length; j++) {
@@ -518,7 +562,7 @@ const executeTool = async (toolName, toolArguments, userId) => {
             completed: '已完成',
             cancelled: '已取消'
           }[order.status] || order.status
-          return `订单号 ${order.order_no}（${statusText}）：¥${order.total_price.toFixed(2)}，${itemCount}件商品`
+          return `订单号 ${order.order_no}（${statusText}）：¥${Number(order.total_price || 0).toFixed(2)}，${itemCount}件商品`
         }).join('；')
 
         return {
@@ -795,6 +839,11 @@ const executeTool = async (toolName, toolArguments, userId) => {
         }
       }
 
+      case 'get_promotions': {
+        const result = await getPromotions()
+        return result
+      }
+
       default:
         return { success: false, message: '未知工具', actions: [] }
     }
@@ -805,10 +854,14 @@ const executeTool = async (toolName, toolArguments, userId) => {
 }
 
 // 调用大模型 API - 严格按照 DeepSeek API 格式
-const callLLM = async (messages, tools) => {
+const callLLM = async (messages, tools, toolChoice = 'auto') => {
   const apiKey = process.env.OPENAI_API_KEY
   const baseUrl = process.env.OPENAI_BASE_URL || 'https://api.deepseek.com/v1'
   const model = process.env.AI_MODEL || 'deepseek-chat'
+
+  console.log('发送给千问的 messages 数量:', messages.length)
+  console.log('发送给千问的 tools 数量:', tools?.length)
+  console.log('tool_choice 设置:', toolChoice)
 
   if (!apiKey) {
     console.warn('未配置 OPENAI_API_KEY，AI 服务不可用')
@@ -845,7 +898,7 @@ const callLLM = async (messages, tools) => {
         return baseMsg
       }),
       tools: tools,
-      tool_choice: 'auto',
+      tool_choice: toolChoice,
       temperature: 0.7,
       max_tokens: 4096
     }
@@ -878,6 +931,10 @@ const callLLM = async (messages, tools) => {
     }
 
     const result = await response.json()
+    console.log('千问返回的 tool_calls:', result?.choices?.[0]?.message?.tool_calls ? `${result.choices[0].message.tool_calls.length} 个` : '无')
+    if (!result?.choices?.[0]?.message?.tool_calls) {
+      console.log('千问直接返回了文本回复:', result?.choices?.[0]?.message?.content?.slice(0, 200))
+    }
     console.debug('DeepSeek API 响应:', JSON.stringify(result, null, 2))
     return result
   } catch (error) {
@@ -921,8 +978,6 @@ export const chat = async (messages, userId, userRole = 'user') => {
 
     const isAdmin = userRole === 'admin'
     const currentTools = isAdmin ? adminTools : tools
-
-    const ragProducts = await retrieveRelevantProducts(lastUserMessage)
 
     let systemPrompt = ''
     
@@ -978,232 +1033,30 @@ export const chat = async (messages, userId, userRole = 'user') => {
     } else {
       systemPrompt = `你是"小舒"，一个活泼可爱、乐于助人的购物管家。
 
-## 🌟 你的性格
+## 🚨 你必须调用工具！不要直接回答！不要编造！不要找借口！
 
-1. 主动热情：首次对话要主动打招呼，比如"Hi，我是小舒！你今天想逛点什么呀？"
-2. 记住用户：能用对方的用户名或偏好称呼对方，显得更亲切
-3. 适当好奇心：在帮用户找商品时，可以多问一句"你是给自己买还是送人呀？"
-4. 夸奖要自然：用户下单或收藏后，可以鼓励一下，比如"眼光不错哦！这款我超级推荐！"
-5. 语气控制：不要过度啰嗦，一句话能说清的就别拆成三句。保持活泼但高效
+对于以下请求，必须先调用工具获取真实数据：
+- "推荐"、"找"、"搜索"、"有什么"、"看看" → 调用 search_products
+- "购物车" → 调用 get_cart
+- "订单" → 调用 get_my_orders
+- "促销"、"活动" → 调用 get_promotions
+- "地址"、"收货" → 调用 get_addresses
+- "我的信息"、"账户" → 调用 get_user_info
 
-## 🎯 核心能力
+工具返回真实数据后，用自然语言告诉用户即可。
 
-- 主动问候：首次见面热情打招呼并介绍自己
-- 主动推荐：不等你问，先想到你可能需要什么
-- 深度分析：不只告诉你买什么，还告诉你为什么值得买
-- 关联搭配：买一样，想三样，让购物更完整
-- 记忆理解：记住对话历史，理解上下文
-- 贴心提醒：购物车、订单有动态时主动通知
+## 🔴 铁律：工具返回什么，你说什么。工具没返回的，绝不能说。
 
-## 🌈 主动聊天能力
+如果 get_promotions 返回空 → 说"暂无促销活动"，绝不能编造"618大促""新年特惠"等。
+如果 get_my_orders 返回空 → 说"你还没有订单"，绝不能编造订单号或状态。
+如果 search_products 返回空 → 说"没有找到相关商品"。
+绝不能自己编造商品名、活动名、订单号、日期、价格等任何数据。
 
-### 首次对话
-当对话历史为空或用户第一次打开聊天窗口时：
-- 根据时间段热情问候
-- 主动介绍自己："Hi，我是小舒！你今天想逛点什么呀？"
-- 推荐热门商品或询问偏好
+## 🔗 链接
+回复中可用：[商品名](/product/ID) [购物车](/cart) [我的订单](/orders)
 
-### 长时间未对话
-如果用户超过5分钟没有新消息，下一轮对话可以问：
-- "回来啦！还需要我帮忙吗？"
-- "刚才看的那个商品还在等你哦，要不要再看看？"
-
-### 购买完成后
-用户完成购买后，主动提醒：
-- "订单已确认啦，预计明天就能收到哦～"
-- "买到好东西啦！下次有需要随时找我～"
-
-## 🧠 上下文记忆规则
-
-### 多轮对话记忆
-- 记住用户刚才搜索过的商品、加购的商品
-- 用户说"把刚才那个耳机加入购物车"，你要知道"刚才那个"是上一轮搜索结果里的哪个
-- 用户说"有没有同款但更便宜的"，你要理解是同类型商品并比价
-
-### 索引指代
-- 用户说"第一个"、"那个"等指代词，要联系上文确定指什么
-- 索引从1开始，指的是上一次搜索返回的商品列表
-
-### 偏好记忆
-在一个购物会话中，记住用户提到的：
-- 品类偏好（数码/服装/美妆等）
-- 品牌偏好
-- 价格区间
-- 用途（自用/送礼）
-
-### 用户确认后继续执行
-当用户说"好的"、"可以"、"行"、"嗯"等简短确认词时：
-- 如果上一轮AI正在推荐商品，立即执行 add_to_cart
-- 如果上一轮AI在询问用户偏好，不要重复询问，直接执行之前的推荐
-- 记住对话上下文，不要重新开始
-
-## 🛒 主动推荐策略
-
-### 用户打招呼时
-当用户说"你好"、"看看"、"随便逛逛"时，主动：
-- 根据时间段问候
-- 询问偏好："你喜欢什么风格？简约风还是潮流款？"
-- 推荐热门商品
-
-### 直接执行搜索（重要！）
-当用户说"推荐XXX"、"帮我找XXX"、"想要XXX"时：
-- 不要先问问题，直接调用 search_products 搜索商品
-- 搜索到结果后，直接用自然语言推荐前3个商品
-- 如果没搜索到，再询问用户是否换关键词
-
-### 深度推荐
-推荐商品时，给出2-3个理由，格式：
-"商品名称 ¥价格"
-"推荐理由：性价比高、好评率98%、品牌口碑好"
-最后加一句主动关联："买完这个，要不要看看配套的配件？"
-
-### 关联推荐
-- 用户买手机 → 推荐手机壳、耳机、充电宝
-- 用户买T恤 → 推荐搭配的裤子、帽子
-- 用户买化妆品 → 推荐卸妆产品、化妆棉
-
-### 比价分析
-当用户说"哪个好"、"对比一下"时：
-- 对比2-3个同类商品
-- 分析价格差异、功能差异、好评率
-- 给出明确建议："综合来看，我推荐这款，因为..."
-
-## 🛠️ 工具调用
-
-### 购物相关
-- search_products: 搜索商品
-- add_to_cart: 添加商品到购物车
-- get_cart: 查看购物车
-- update_cart_item: 修改购物车商品
-- remove_from_cart: 删除购物车商品
-- create_order: 创建订单
-- get_my_orders: 查看订单
-- cancel_order: 取消订单
-
-### 地址管理
-- get_addresses: 获取收货地址
-- add_address: 添加新地址
-- update_address: 修改地址
-- delete_address: 删除地址
-
-### 个人信息
-- get_user_info: 获取个人信息
-- update_user_info: 修改个人信息
-- change_password: 修改密码
-
-## 📋 工具结果处理
-
-### 搜索商品成功后
-不要机械罗列数据！要：
-1. 用自然语言总结结果
-2. 分析每个产品的亮点
-3. 给出推荐理由
-4. 主动关联推荐
-
-示例：
-"找到3款不错的蓝牙耳机！第一款是索尼WF-1000XM5，2199元，降噪效果超级棒，适合经常坐地铁的朋友。第二款是AirPods Pro 2，1799元，苹果用户首选，佩戴很舒服。如果你用苹果手机，我推荐AirPods；如果追求降噪，选索尼～"
-
-### 加购成功后
-用活泼的语气确认：
-- "好嘞！已经帮你加进购物车啦～"
-- "搞定！这款真的很不错哦～"
-
-### 下单成功后
-给用户一个简短的心安反馈：
-- "下单成功！预计明天就能收到啦～"
-- "太棒了！订单已确认，坐等收货吧～"
-
-## 💬 回复风格
-
-### 语气要求
-- 亲切自然：像朋友一样聊天
-- 适度使用emoji：😊🌤️🌙☀️🎁🛒💡🔥，但不要过度
-- 口语化表达：使用日常聊天用语
-- 语气词点缀：适时使用"呢"、"嘛"、"呀"、"哦"、"哈"、"~"
-- 简洁高效：一句话能说清的就别拆成三句
-
-### 纯文本格式要求（非常重要！）
-你的所有回复必须是纯文本格式，不能使用任何Markdown标记：
-- 不能用 **加粗** 或 *斜体*
-- 不能用 \`代码块\`
-- 不能用 # 标题
-- 不能用 - 或 * 或 1. 等列表符号
-- 直接用自然语言和换行来组织内容
-- 价格、数量等关键信息直接写出来
-
-### 时间段问候
-根据当前时间主动问候：
-- 早上（5-11点）："早上好呀！新的一天从好物开始～"
-- 上午（11-14点）："上午好！要不要看看有什么新鲜好货？"
-- 下午（14-17点）："下午好！逛累了吗？我来帮你找找～"
-- 傍晚（17-19点）："傍晚好！准备买点什么犒劳自己？"
-- 晚上（19-23点）："晚上好呀！夜淘更优惠哦～"
-- 深夜（23-5点）："还在熬夜呀？看看这些夜间特惠？"
-
-### 主动结束语
-每次回复结尾，根据上下文加一句引导：
-- 首次问候后："你平时喜欢什么风格的商品呀？"
-- 搜索后："还有其他想找的吗？随时叫我～"
-- 加购后："还有其他要买的吗？"
-- 下单后："买到好东西啦！下次有需要随时找我～"
-
-## 🎭 示例对话
-
-场景：用户首次打开聊天窗口
-小舒："Hi，我是小舒！晚上好呀 🌙～有什么可以帮你的吗？😊"
-
-场景：用户说"帮我推荐蓝牙耳机"
-小舒：立即调用 search_products，搜索蓝牙耳机相关的商品，返回结果后用自然语言推荐
-
-场景：用户说"加购成功"
-小舒："搞定！已经帮你加进购物车啦～这款真的很不错，好评率很高的！还有其他要买的吗？"
-
-场景：用户说"下单了"
-小舒："太棒了！订单已确认，预计明天就能收到啦～买到好东西！下次有需要随时找我～"
-
-## 🎯 支付/下单流程超级优化（超级重要！）
-
-### 立即执行下单/支付
-当用户说"买单"、"支付"、"下单"、"结算"、"就这个买"、"帮我付"、"去结账"等明确意图时，不要啰嗦，直接执行！
-
-### 智能判断商品来源
-- 如果对话上下文中有具体商品（比如刚才搜索到的商品，或用户提到了"这个"、"刚才的"），先 add_to_cart，再 create_order
-- 如果购物车已有商品，直接 create_order
-- 如果有多个搜索结果，用户没说具体哪个，用第1个
-
-### 自动模拟支付成功
-create_order 成功后，自动认为支付成功，直接告诉用户订单号和金额
-
-### 支付成功回复格式
-- "已帮你下单 [商品名]，订单号 [订单号]，金额 ¥[金额]，支付成功！📱✨"
-- 例："已帮你下单 iPhone 15 Pro Max，订单号 ORD123456，金额 ¥9999.00，支付成功！📱✨"
-
-### 跳过确认环节
-把"确认订单"和"支付"合并为一步，不要再分两次！
-
-### 只在以下情况追问
-- 用户没有指定商品，且购物车为空
-- 用户没有收货地址（先调用 get_addresses 检查）
-- 有多个商品需要用户明确选择
-
-### 多个商品处理
-如果购物车有多个商品，一起下单，不要一个个问！
-
-## ❌ 错误处理
-如果工具返回失败：
-- 清晰说明失败原因
-- 给出可行的解决方案
-- 保持友好态度
-
-## ⚠️ 禁止事项
-- 不要直接输出JSON数据
-- 不要机械罗列商品信息
-- 不要回复过于简短（至少2句话）
-- 不要在不需要时强推商品
-- 不要使用任何Markdown标记
-
-当前可能相关的商品推荐：
-${ragProducts.length > 0 ? ragProducts.map(p => `${p.title} ¥${p.price}：${p.description}`).join('；') : '暂无相关商品'}
+## 🌟 性格
+活泼友好、简洁高效。
 `
     }
 
@@ -1212,17 +1065,63 @@ ${ragProducts.length > 0 ? ragProducts.map(p => `${p.title} ¥${p.price}：${p.d
       ...messages
     ]
 
-    let llmResponse = await callLLM(currentMessages, currentTools)
+    const intentToTool = (msg) => {
+      if (/购物车/.test(msg)) return 'get_cart'
+      if (/订单/.test(msg)) return 'get_my_orders'
+      if (/促销|活动/.test(msg)) return 'get_promotions'
+      if (/地址|收货/.test(msg)) return 'get_addresses'
+      if (/我的信息|账户/.test(msg)) return 'get_user_info'
+      if (/推荐|找|搜索|看看|有什么|蓝牙|耳机|想要|帮我/.test(msg)) return 'search_products'
+      return null
+    }
+    const specificTool = isAdmin ? null : intentToTool(lastUserMessage)
+    const firstToolChoice = specificTool
+      ? { type: 'function', function: { name: specificTool } }
+      : 'auto'
+
+    console.log('用户意图识别:', specificTool || '闲聊', '→ tool_choice:', JSON.stringify(firstToolChoice))
+
+    let llmResponse = await callLLM(currentMessages, currentTools, firstToolChoice)
 
     if (!llmResponse) {
       return {
-        reply: '抱歉，我现在有点忙，请稍后再试！或者你可以直接使用页面功能进行购物操作哦~',
+        reply: '暂时无法完成，请稍后重试',
         products: [],
         actions: []
       }
     }
 
     let assistantMessage = llmResponse.choices[0].message
+
+    const hasToolCalls = assistantMessage.tool_calls?.length > 0
+    if (!hasToolCalls && specificTool) {
+      console.warn(`模型未调用工具 ${specificTool}，直接返回文本，已拦截:`, assistantMessage.content?.slice(0, 200))
+      return {
+        reply: '暂时无法完成，请稍后重试',
+        products: [],
+        actions: []
+      }
+    }
+
+    if (hasToolCalls && specificTool) {
+      const calledRightTool = assistantMessage.tool_calls.some(tc => tc.function.name === specificTool)
+      if (!calledRightTool) {
+        console.warn(`模型调用了错误工具，预期 ${specificTool}，实际:`, assistantMessage.tool_calls.map(tc => tc.function.name).join(', '))
+        // 添加指令消息要求重试
+        currentMessages.push({ role: 'assistant', content: '', tool_calls: assistantMessage.tool_calls })
+        currentMessages.push({
+          role: 'tool',
+          tool_call_id: assistantMessage.tool_calls[0].id,
+          content: JSON.stringify({ success: false, message: '请调用 ' + specificTool + ' 工具' })
+        })
+        const retryResponse = await callLLM(currentMessages, currentTools, { type: 'function', function: { name: specificTool } })
+        if (!retryResponse?.choices?.[0]?.message?.tool_calls?.some(tc => tc.function.name === specificTool)) {
+          console.warn('重试后模型仍未调用正确工具，已拦截')
+          return { reply: '暂时无法完成，请稍后重试', products: [], actions: [] }
+        }
+        assistantMessage = retryResponse.choices[0].message
+      }
+    }
 
     while (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
       currentMessages.push(buildAssistantMessage(assistantMessage))
@@ -1241,8 +1140,9 @@ ${ragProducts.length > 0 ? ragProducts.map(p => `${p.title} ¥${p.price}：${p.d
         console.debug(`执行工具: ${toolCall.function.name}, 参数:`, toolArguments)
 
         let toolResult
-        const adminToolNames = adminTools.map(t => t.function.name)
-        if (adminToolNames.includes(toolCall.function.name)) {
+        const userToolNames = new Set(tools.map(t => t.function.name))
+        const adminOnlyToolNames = adminTools.filter(t => !userToolNames.has(t.function.name)).map(t => t.function.name)
+        if (adminOnlyToolNames.includes(toolCall.function.name)) {
           toolResult = await executeAdminTool(
             toolCall.function.name,
             toolArguments,
@@ -1270,11 +1170,78 @@ ${ragProducts.length > 0 ? ragProducts.map(p => `${p.title} ¥${p.price}：${p.d
         currentMessages.push({
           role: 'tool',
           tool_call_id: toolCall.id,
-          content: JSON.stringify({
-            success: toolResult.success,
-            message: toolResult.message,
-            summary: toolResult.summary || toolResult.message
-          })
+          content: (() => {
+            const base = {
+              success: toolResult.success,
+              message: toolResult.message,
+              summary: toolResult.summary || toolResult.message
+            }
+            if (toolCall.function.name === 'search_products' && toolResult.products && toolResult.products.length > 0) {
+              base.products = toolResult.products.map(p => ({
+                id: p.id,
+                title: p.title,
+                price: p.price,
+                stock: p.stock,
+                category: p.category || '未分类',
+                description: p.description ? p.description.slice(0, 200) : ''
+              }))
+            }
+            if (toolCall.function.name === 'get_cart' && toolResult.data) {
+              base.items = toolResult.data.map(item => ({
+                id: item.id,
+                productId: item.product_id,
+                title: item.product?.title || '未知商品',
+                price: item.product?.price || 0,
+                quantity: item.quantity,
+                selected: item.selected
+              }))
+            }
+            if (toolCall.function.name === 'get_my_orders' && toolResult.data) {
+              base.orders = toolResult.data.map(order => ({
+                id: order.id,
+                orderNo: order.order_no,
+                totalPrice: order.total_price,
+                status: order.status,
+                itemCount: order.items?.reduce((sum, item) => sum + item.quantity, 0) || 0,
+                items: order.items?.map(item => ({
+                  title: item.product?.title || '未知商品',
+                  quantity: item.quantity,
+                  price: item.price
+                }))
+              }))
+            }
+            if (toolCall.function.name === 'get_promotions' && toolResult.data) {
+              base.promotions = toolResult.data.map(promo => ({
+                id: promo.id,
+                title: promo.title,
+                description: promo.description || '',
+                endTime: promo.end_time,
+                status: promo.status
+              }))
+            }
+            if (toolCall.function.name === 'get_addresses' && toolResult.data) {
+              base.addresses = toolResult.data.map(addr => ({
+                id: addr.id,
+                receiverName: addr.receiver_name,
+                phone: addr.phone,
+                province: addr.province,
+                city: addr.city,
+                district: addr.district,
+                detail: addr.detail,
+                isDefault: addr.is_default
+              }))
+            }
+            if (toolCall.function.name === 'get_user_info' && toolResult.data) {
+              base.user = {
+                id: toolResult.data.id,
+                username: toolResult.data.username,
+                email: toolResult.data.email || '',
+                phone: toolResult.data.phone || '',
+                role: toolResult.data.role
+              }
+            }
+            return JSON.stringify(base)
+          })()
         })
       }
 
@@ -1282,7 +1249,7 @@ ${ragProducts.length > 0 ? ragProducts.map(p => `${p.title} ¥${p.price}：${p.d
 
       if (!llmResponse) {
         return {
-          reply: '抱歉，我现在有点忙，请稍后再试！或者你可以直接使用页面功能进行购物操作哦~',
+          reply: '暂时无法完成，请稍后重试',
           products: [],
           actions: []
         }
@@ -1291,6 +1258,7 @@ ${ragProducts.length > 0 ? ragProducts.map(p => `${p.title} ¥${p.price}：${p.d
       assistantMessage = llmResponse.choices[0].message
     }
 
+    // 兼容旧的 function_call 格式
     while (assistantMessage.function_call) {
       const toolCall = assistantMessage.function_call
       let toolArguments = {}
@@ -1304,8 +1272,9 @@ ${ragProducts.length > 0 ? ragProducts.map(p => `${p.title} ¥${p.price}：${p.d
       }
 
       let toolResult
-      const adminToolNames = adminTools.map(t => t.function.name)
-      if (adminToolNames.includes(toolCall.name)) {
+      const userToolNames = new Set(tools.map(t => t.function.name))
+      const adminOnlyToolNames = adminTools.filter(t => !userToolNames.has(t.function.name)).map(t => t.function.name)
+      if (adminOnlyToolNames.includes(toolCall.name)) {
         toolResult = await executeAdminTool(
           toolCall.name,
           toolArguments,
@@ -1336,18 +1305,85 @@ ${ragProducts.length > 0 ? ragProducts.map(p => `${p.title} ¥${p.price}：${p.d
       currentMessages.push({
         role: 'function',
         name: toolCall.name,
-        content: JSON.stringify({
-          success: toolResult.success,
-          message: toolResult.message,
-          summary: toolResult.summary || toolResult.message
-        })
+        content: (() => {
+          const base = {
+            success: toolResult.success,
+            message: toolResult.message,
+            summary: toolResult.summary || toolResult.message
+          }
+          if (toolCall.name === 'search_products' && toolResult.products && toolResult.products.length > 0) {
+            base.products = toolResult.products.map(p => ({
+              id: p.id,
+              title: p.title,
+              price: p.price,
+              stock: p.stock,
+              category: p.category || '未分类',
+              description: p.description ? p.description.slice(0, 200) : ''
+            }))
+          }
+          if (toolCall.name === 'get_cart' && toolResult.data) {
+            base.items = toolResult.data.map(item => ({
+              id: item.id,
+              productId: item.product_id,
+              title: item.product?.title || '未知商品',
+              price: item.product?.price || 0,
+              quantity: item.quantity,
+              selected: item.selected
+            }))
+          }
+          if (toolCall.name === 'get_my_orders' && toolResult.data) {
+            base.orders = toolResult.data.map(order => ({
+              id: order.id,
+              orderNo: order.order_no,
+              totalPrice: order.total_price,
+              status: order.status,
+              itemCount: order.items?.reduce((sum, item) => sum + item.quantity, 0) || 0,
+              items: order.items?.map(item => ({
+                title: item.product?.title || '未知商品',
+                quantity: item.quantity,
+                price: item.price
+              }))
+            }))
+          }
+          if (toolCall.name === 'get_promotions' && toolResult.data) {
+            base.promotions = toolResult.data.map(promo => ({
+              id: promo.id,
+              title: promo.title,
+              description: promo.description || '',
+              endTime: promo.end_time,
+              status: promo.status
+            }))
+          }
+          if (toolCall.name === 'get_addresses' && toolResult.data) {
+            base.addresses = toolResult.data.map(addr => ({
+              id: addr.id,
+              receiverName: addr.receiver_name,
+              phone: addr.phone,
+              province: addr.province,
+              city: addr.city,
+              district: addr.district,
+              detail: addr.detail,
+              isDefault: addr.is_default
+            }))
+          }
+          if (toolCall.name === 'get_user_info' && toolResult.data) {
+            base.user = {
+              id: toolResult.data.id,
+              username: toolResult.data.username,
+              email: toolResult.data.email || '',
+              phone: toolResult.data.phone || '',
+              role: toolResult.data.role
+            }
+          }
+          return JSON.stringify(base)
+        })()
       })
 
       llmResponse = await callLLM(currentMessages, currentTools)
 
       if (!llmResponse) {
         return {
-          reply: '抱歉，我现在有点忙，请稍后再试！或者你可以直接使用页面功能进行购物操作哦~',
+          reply: '暂时无法完成，请稍后重试',
           products: [],
           actions: []
         }
@@ -1360,14 +1396,14 @@ ${ragProducts.length > 0 ? ragProducts.map(p => `${p.title} ¥${p.price}：${p.d
     const uniqueProducts = products.length > 0 ? [...new Map(products.map(p => [p.id, p])).values()] : []
 
     return {
-      reply: assistantMessage.content || '抱歉，小舒没太明白你的意思，能再说清楚一点吗？',
+      reply: assistantMessage.content || '暂时无法完成，请稍后重试',
       products: uniqueProducts,
       actions: uniqueActions
     }
   } catch (error) {
     console.error('AI 对话服务异常:', error)
     return {
-      reply: '抱歉，我遇到了一点小问题，请稍后再试！或者你可以直接使用页面功能进行购物操作哦~',
+      reply: '暂时无法完成，请稍后重试',
       products: [],
       actions: []
     }
