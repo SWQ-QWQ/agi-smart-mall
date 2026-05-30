@@ -131,11 +131,27 @@ const executeAdminTool = async (toolName, toolArguments, userId, userRole) => {
           createdAt: u.createdAt
         }))
 
+        const statusText = { active: '正常', banned: '封禁' }
+        const formattedUsers = userList.map(u => {
+          const date = new Date(u.createdAt)
+          const formattedDate = date.toLocaleString('zh-CN', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+          })
+          return `用户ID: ${u.id}，用户名: ${u.username}，邮箱: ${u.email}，状态: ${statusText[u.status] || u.status}，注册时间: ${formattedDate}`
+        })
+
+        let summary = `已获取最新用户列表（第${page}页，共${count}条）：\n${formattedUsers.join('  \n')}\n\n如需按关键词搜索、筛选封禁用户或翻页查看，请告诉我。`
+
         return {
           success: true,
           data: { users: userList, total: count, page: parseInt(page) },
           message: '获取用户列表成功',
-          summary: `共找到${count}个用户，当前显示第${page}页，每页${limit}条`,
+          summary,
           actions: []
         }
       }

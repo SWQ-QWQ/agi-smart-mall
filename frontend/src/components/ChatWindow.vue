@@ -25,7 +25,7 @@
         @mouseout="isBtnHovered = false"
         :style="btnPosition"
         :class="[
-          'fixed z-[9999] flex items-center justify-center',
+          'fixed z-[99999] flex items-center justify-center',
           'w-14 h-14 rounded-full',
           isDragging ? '' : 'transition-all duration-300',
           'hover:scale-110 active:scale-95',
@@ -33,15 +33,15 @@
         ]"
       >
         <img 
-          src="/avatars/ai-avatar.png" 
-          alt="小舒" 
-          :class="[
-            'w-full h-full rounded-full object-cover transition-all duration-200',
-            isBtnHovered ? 'animate-bounce' : ''
-          ]"
-          @error="$event.target.style.display='none'; $event.target.nextSibling.style.display='flex'"
-        />
-        <span class="text-2xl hidden">🤖</span>
+                  src="/avatars/ai-avatar.png" 
+                  alt="小舒" 
+                  :class="[
+                    'w-full h-full rounded-full object-cover transition-all duration-200',
+                    isBtnHovered ? 'animate-bounce' : ''
+                  ]"
+                  @error="handleAvatarError"
+                />
+                <span class="text-2xl hidden">🤖</span>
       </button>
     </div>
 
@@ -68,9 +68,9 @@
                   src="/avatars/ai-avatar.png" 
                   alt="小舒" 
                   class="w-full h-full object-cover"
-                  @error="$event.target.style.display='none'; $event.target.nextSibling.style.display='flex'"
+                  @error="handleAvatarError"
                 />
-                <span class="text-xl hidden">🤖</span>
+                <span class="text-sm hidden">🤖</span>
               </div>
               <div>
                 <h3 class="font-semibold">{{ isAdminMode ? '管理助手' : '小舒' }}</h3>
@@ -112,7 +112,7 @@
                   :src="aiAvatarUrl"
                   alt="小舒"
                   class="w-full h-full object-cover"
-                  @error="$event.target.style.display='none'; $event.target.nextSibling.style.display='flex'"
+                  @error="handleAvatarError"
                 />
                 <span class="text-sm hidden">🤖</span>
               </div>
@@ -140,11 +140,13 @@
                         :src="product.image" 
                         :alt="product.title" 
                         class="w-full h-full object-cover"
-                        @error="e => { e.target.style.display='none'; e.target.nextElementSibling.style.display='flex' }"
+                        @error="handleProductImageError"
                       />
                       <span 
-                        v-else 
-                        class="w-full h-full flex items-center justify-center text-2xl text-gray-400"
+                        :class="[
+                          'w-full h-full flex items-center justify-center text-2xl text-gray-400',
+                          product.image ? 'hidden' : ''
+                        ]"
                       >🛍️</span>
                     </div>
                     <div class="flex-1 min-w-0">
@@ -392,11 +394,11 @@ const btnPosition = ref({
 
 const chatWindowClass = computed(() => {
   if (chatWindowPosition.value === 'left') {
-    return 'fixed top-0 left-0 w-full md:w-[400px] h-full z-[100]'
+    return 'fixed top-0 left-0 w-full md:w-[400px] h-full z-[99999]'
   } else if (chatWindowPosition.value === 'center') {
-    return 'fixed top-0 left-1/2 -translate-x-1/2 w-full md:w-[400px] h-full z-[100]'
+    return 'fixed top-0 left-1/2 -translate-x-1/2 w-full md:w-[400px] h-full z-[99999]'
   }
-  return 'fixed top-0 right-0 w-full md:w-[400px] h-full z-[100]'
+  return 'fixed top-0 right-0 w-full md:w-[400px] h-full z-[99999]'
 })
 
 const chatTransitionName = computed(() => {
@@ -589,6 +591,7 @@ const openChat = () => {
 
   if (messages.value.length === 0) {
     isLoading.value = true
+    // 发送问候语，不要往 messages.value 里加，直接发送请求
     fetch('http://localhost:3000/api/ai/chat', {
       method: 'POST',
       headers: {
@@ -668,6 +671,22 @@ const goToProduct = (productId) => {
   }
 }
 
+const handleAvatarError = (e) => {
+  e.target.style.display = 'none'
+  const nextSibling = e.target.nextElementSibling
+  if (nextSibling) {
+    nextSibling.style.display = 'flex'
+  }
+}
+
+const handleProductImageError = (e) => {
+  e.target.style.display = 'none'
+  const nextSibling = e.target.nextElementSibling
+  if (nextSibling) {
+    nextSibling.style.display = 'flex'
+  }
+}
+
 const showToastMessage = (message) => {
   toastMessage.value = message
   showToast.value = true
@@ -682,11 +701,12 @@ const sendMessage = (text = null) => {
 
   inputMessage.value = ''
   lastMessageTime = Date.now()
-  messages.value.push({
+  const userMessage = {
     role: 'user',
     content: message,
     timestamp: new Date()
-  })
+  }
+  messages.value.push(userMessage)
 
   scrollToBottom()
 
@@ -696,6 +716,12 @@ const sendMessage = (text = null) => {
     ? localStorage.getItem('adminToken') 
     : localStorage.getItem('token')
 
+  // 构建完整的对话历史（只包含role和content，过滤掉products等额外字段）
+  const conversationHistory = messages.value.map(msg => ({
+    role: msg.role,
+    content: msg.content
+  }))
+  
   fetch('http://localhost:3000/api/ai/chat', {
     method: 'POST',
     headers: {
@@ -703,7 +729,7 @@ const sendMessage = (text = null) => {
       'Authorization': `Bearer ${token}`
     },
     body: JSON.stringify({
-      messages: [{ role: 'user', content: message }]
+      messages: conversationHistory
     })
   })
   .then(r => r.json())

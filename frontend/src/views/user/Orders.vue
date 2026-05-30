@@ -48,8 +48,9 @@
           <!-- Order Items -->
           <div class="p-4 border-b">
             <div v-for="item in order.items" :key="item.id" class="flex items-center gap-4 mb-2">
-              <div class="w-12 h-12 bg-gradient-to-br from-gray-100 to-gray-200 rounded flex items-center justify-center flex-shrink-0">
-                <span class="text-xl">🛍️</span>
+              <div class="w-12 h-12 bg-gradient-to-br from-gray-100 to-gray-200 rounded flex items-center justify-center flex-shrink-0 overflow-hidden">
+                <img v-if="item.product?.image" :src="item.product.image" :alt="item.product?.title" class="w-full h-full object-cover" />
+                <span v-else class="text-xl">🛍️</span>
               </div>
               <div class="flex-1">
                 <h3 class="text-gray-800">{{ item.product?.title }}</h3>

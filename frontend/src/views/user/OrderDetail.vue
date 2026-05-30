@@ -52,8 +52,9 @@
           <h3 class="font-bold mb-4">商品清单</h3>
           <div class="space-y-4">
             <div v-for="item in order.items" :key="item.id" class="flex items-center gap-4">
-              <div class="w-16 h-16 bg-gradient-to-br from-gray-100 to-gray-200 rounded flex items-center justify-center flex-shrink-0">
-                <span class="text-2xl">🛍️</span>
+              <div class="w-16 h-16 bg-gradient-to-br from-gray-100 to-gray-200 rounded flex items-center justify-center flex-shrink-0 overflow-hidden">
+                <img v-if="item.product?.image" :src="item.product.image" :alt="item.product?.title" class="w-full h-full object-cover" />
+                <span v-else class="text-2xl">🛍️</span>
               </div>
               <div class="flex-1">
                 <h3 class="font-semibold text-gray-800">{{ item.product?.title }}</h3>

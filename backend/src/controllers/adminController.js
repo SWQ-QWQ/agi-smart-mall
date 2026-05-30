@@ -489,7 +489,7 @@ export const getOrders = async (req, res) => {
         { model: User, as: 'user', attributes: ['id', 'username', 'email'] },
         {
           model: OrderItem, as: 'items', include: [
-            { model: Product, as: 'product', attributes: ['id', 'title', 'price'] }
+            { model: Product, as: 'product', attributes: ['id', 'title', 'price', 'image'] }
           ]
         }
       ],
@@ -505,6 +505,18 @@ export const getOrders = async (req, res) => {
           id: order.id,
           orderNo: order.order_no,
           user: order.user,
+          items: order.items?.map(item => ({
+            id: item.id,
+            quantity: item.quantity,
+            price: item.price,
+            subtotal: item.subtotal,
+            product: item.product ? {
+              id: item.product.id,
+              title: item.product.title,
+              price: item.product.price,
+              image: item.product.image
+            } : null
+          })),
           totalPrice: order.total_price,
           status: order.status,
           trackingNo: order.tracking_no,
@@ -541,9 +553,39 @@ export const getOrderById = async (req, res) => {
     if (!order) {
       return res.status(404).json({ success: false, message: '订单不存在' })
     }
+    
+    // 转换为驼峰格式
+    const transformedOrder = {
+      id: order.id,
+      orderNo: order.order_no,
+      userId: order.user_id,
+      addressId: order.address_id,
+      totalPrice: order.total_price,
+      status: order.status,
+      trackingNo: order.tracking_no,
+      paymentMethod: order.payment_method,
+      paidAt: order.paid_at,
+      shippedAt: order.shipped_at,
+      completedAt: order.completed_at,
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt,
+      user: order.user,
+      items: order.items?.map(item => ({
+        id: item.id,
+        orderId: item.order_id,
+        productId: item.product_id,
+        quantity: item.quantity,
+        price: item.price,
+        subtotal: item.subtotal,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+        product: item.product
+      }))
+    }
+    
     return res.status(200).json({
       success: true,
-      data: order,
+      data: transformedOrder,
       message: '获取订单详情成功'
     })
   } catch (error) {

@@ -852,14 +852,20 @@ const callLLM = async (messages, tools) => {
 
     console.debug('DeepSeek API 请求体:', JSON.stringify(requestBody, null, 2))
 
+    // 添加超时控制
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 30000) // 30秒超时
+
     const response = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`
       },
-      body: JSON.stringify(requestBody)
+      body: JSON.stringify(requestBody),
+      signal: controller.signal
     })
+    clearTimeout(timeoutId)
 
     if (!response.ok) {
       const errorText = await response.text()
@@ -879,6 +885,9 @@ const callLLM = async (messages, tools) => {
     console.error('异常信息:', error.message)
     console.error('异常堆栈:', error.stack)
     console.error('===========================')
+    if (error.name === 'AbortError') {
+      console.warn('请求超时 - 可能是网络问题或API响应过慢')
+    }
     return null
   }
 }
@@ -1207,7 +1216,7 @@ ${ragProducts.length > 0 ? ragProducts.map(p => `${p.title} ¥${p.price}：${p.d
 
     if (!llmResponse) {
       return {
-        reply: '哎呀，小舒暂时有点忙不过来～你可以先用页面的功能操作，稍后再找我聊天呀！',
+        reply: '抱歉，我现在有点忙，请稍后再试！或者你可以直接使用页面功能进行购物操作哦~',
         products: [],
         actions: []
       }
@@ -1273,7 +1282,7 @@ ${ragProducts.length > 0 ? ragProducts.map(p => `${p.title} ¥${p.price}：${p.d
 
       if (!llmResponse) {
         return {
-          reply: '哎呀，小舒暂时有点忙不过来～你可以先用页面的功能操作，稍后再找我聊天呀！',
+          reply: '抱歉，我现在有点忙，请稍后再试！或者你可以直接使用页面功能进行购物操作哦~',
           products: [],
           actions: []
         }
@@ -1338,7 +1347,7 @@ ${ragProducts.length > 0 ? ragProducts.map(p => `${p.title} ¥${p.price}：${p.d
 
       if (!llmResponse) {
         return {
-          reply: '哎呀，小舒暂时有点忙不过来～你可以先用页面的功能操作，稍后再找我聊天呀！',
+          reply: '抱歉，我现在有点忙，请稍后再试！或者你可以直接使用页面功能进行购物操作哦~',
           products: [],
           actions: []
         }
@@ -1358,7 +1367,7 @@ ${ragProducts.length > 0 ? ragProducts.map(p => `${p.title} ¥${p.price}：${p.d
   } catch (error) {
     console.error('AI 对话服务异常:', error)
     return {
-      reply: '哎呀，小舒遇到了一点小问题～你可以稍后再试试，或者用页面的功能操作哦！',
+      reply: '抱歉，我遇到了一点小问题，请稍后再试！或者你可以直接使用页面功能进行购物操作哦~',
       products: [],
       actions: []
     }
