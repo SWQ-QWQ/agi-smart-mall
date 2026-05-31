@@ -189,13 +189,13 @@ export const adminTools = [
     type: 'function',
     function: {
       name: 'edit_product',
-      description: '编辑商品信息（价格、库存、状态等）',
+      description: '编辑商品信息（价格、库存、状态等）。如果未提供 productId，将自动使用上一次搜索到的商品ID。当上一次搜索结果为多个商品时，需要先让管理员选择。',
       parameters: {
         type: 'object',
         properties: {
           productId: {
             type: 'integer',
-            description: '商品ID'
+            description: '商品ID（可选，不提供则自动使用上下文中的商品ID）'
           },
           title: {
             type: 'string',
@@ -222,7 +222,7 @@ export const adminTools = [
             description: '商品状态（active/inactive，可选）'
           }
         },
-        required: ['productId']
+        required: []
       }
     }
   },
@@ -230,20 +230,20 @@ export const adminTools = [
     type: 'function',
     function: {
       name: 'update_product_price',
-      description: '修改商品价格',
+      description: '修改商品价格。如果未提供 productId，将自动使用上一次搜索到的商品ID（仅当搜索结果唯一时生效）。',
       parameters: {
         type: 'object',
         properties: {
           productId: {
             type: 'integer',
-            description: '商品ID'
+            description: '商品ID（可选，不提供则自动使用上下文中唯一商品的ID）'
           },
           newPrice: {
             type: 'number',
             description: '新价格'
           }
         },
-        required: ['productId', 'newPrice']
+        required: ['newPrice']
       }
     }
   },
@@ -251,20 +251,20 @@ export const adminTools = [
     type: 'function',
     function: {
       name: 'update_product_stock',
-      description: '修改商品库存',
+      description: '修改商品库存。如果未提供 productId，将自动使用上一次搜索到的商品ID（仅当搜索结果唯一时生效）。',
       parameters: {
         type: 'object',
         properties: {
           productId: {
             type: 'integer',
-            description: '商品ID'
+            description: '商品ID（可选，不提供则自动使用上下文中唯一商品的ID）'
           },
           newStock: {
             type: 'integer',
             description: '新库存数量'
           }
         },
-        required: ['productId', 'newStock']
+        required: ['newStock']
       }
     }
   },
@@ -272,20 +272,20 @@ export const adminTools = [
     type: 'function',
     function: {
       name: 'update_product_status',
-      description: '上架或下架商品',
+      description: '上架或下架商品。如果未提供 productId，将自动使用上一次搜索到的商品ID（仅当搜索结果唯一时生效）。',
       parameters: {
         type: 'object',
         properties: {
           productId: {
             type: 'integer',
-            description: '商品ID'
+            description: '商品ID（可选，不提供则自动使用上下文中唯一商品的ID）'
           },
           status: {
             type: 'string',
             description: '目标状态（active=上架，inactive=下架）'
           }
         },
-        required: ['productId', 'status']
+        required: ['status']
       }
     }
   },
@@ -293,20 +293,20 @@ export const adminTools = [
     type: 'function',
     function: {
       name: 'delete_product',
-      description: '删除商品（需要二次确认）',
+      description: '删除商品（需要二次确认）。如果未提供 productId，将自动使用上一次搜索到的商品ID（仅当搜索结果唯一时生效）。',
       parameters: {
         type: 'object',
         properties: {
           productId: {
             type: 'integer',
-            description: '商品ID'
+            description: '商品ID（可选，不提供则自动使用上下文中唯一商品的ID）'
           },
           confirm: {
             type: 'boolean',
             description: '是否确认操作（true表示已确认）'
           }
         },
-        required: ['productId']
+        required: []
       }
     }
   },

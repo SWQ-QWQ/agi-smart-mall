@@ -1,6 +1,6 @@
 import { Product, Cart, Order, OrderItem, Address, Category, User, Promotion, sequelize } from '../models/index.js'
 import { tools } from './aiTools.js'
-import { adminTools, executeAdminTool } from './adminAiService.js'
+import { adminTools, executeAdminTool, getAdminSessionContext } from './adminAiService.js'
 import { Op } from 'sequelize'
 import dotenv from 'dotenv'
 
@@ -270,6 +270,7 @@ const executeTool = async (toolName, toolArguments, userId) => {
 
         const products = await Product.findAll({
           where,
+          attributes: ['id', 'title', 'description', 'image', 'price', 'stock', 'category_id', 'brand', 'sales', 'rating'],
           limit: 10,
           order,
           include: [{ model: Category, as: 'category' }]
@@ -292,6 +293,9 @@ const executeTool = async (toolName, toolArguments, userId) => {
           price: p.price,
           image: p.image || '',
           stock: p.stock,
+          brand: p.brand || '',
+          sales: p.sales || 0,
+          rating: p.rating || 0,
           category: p.category?.name || '未分类',
           description: p.description?.slice(0, 100) || ''
         }))
@@ -982,7 +986,18 @@ export const chat = async (messages, userId, userRole = 'user') => {
     let systemPrompt = ''
     
     if (isAdmin) {
-      systemPrompt = `你是"小舒"，一名专业的电商运营管理助手。你的唯一职责是帮助管理员高效管理商城后台。
+      const adminCtx = getAdminSessionContext(userId)
+      const ctxProducts = adminCtx?.lastSearchResults || []
+      let contextHint = ''
+
+      if (ctxProducts.length === 1) {
+        const p = ctxProducts[0]
+        contextHint = `\n## 当前上下文\n管理员上一次搜索只找到1个商品：${p.title}（ID:${p.id}，¥${p.price}，库存${p.stock}）。\n当管理员发出修改指令（如"修改价格为1888"、"下架它"、"增加库存到100"）且未指定商品ID时，你可以直接调用工具，不传productId参数，系统会自动使用该商品ID=${p.id}。`
+      } else if (ctxProducts.length > 1) {
+        contextHint = `\n## 当前上下文\n管理员上一次搜索找到${ctxProducts.length}个商品：\n${ctxProducts.map((p, i) => `${i + 1}. ${p.title}（ID:${p.id}，¥${p.price}，库存${p.stock}）`).join('\n')}\n\n当管理员发出修改指令但未指定具体商品时，先列出以上商品让管理员选择，不要猜测。`
+      }
+
+      systemPrompt = `你是"小舒"，一名专业的电商运营管理助手。你的唯一职责是帮助管理员高效管理商城后台。${contextHint}
 
 ## 核心能力
 
@@ -1001,6 +1016,9 @@ export const chat = async (messages, userId, userRole = 'user') => {
 - update_order_status: 修改订单状态（发货、完成等）
 - add_product: 添加新商品
 - edit_product: 编辑商品信息
+- update_product_price: 修改商品价格（若未提供productId会自动使用上下文）
+- update_product_stock: 修改商品库存（若未提供productId会自动使用上下文）
+- update_product_status: 修改商品上下架状态（若未提供productId会自动使用上下文）
 - delete_product: 删除商品（需要confirm确认）
 - get_category_stats: 查看各分类商品数量统计
 
@@ -1142,7 +1160,8 @@ export const chat = async (messages, userId, userRole = 'user') => {
         let toolResult
         const userToolNames = new Set(tools.map(t => t.function.name))
         const adminOnlyToolNames = adminTools.filter(t => !userToolNames.has(t.function.name)).map(t => t.function.name)
-        if (adminOnlyToolNames.includes(toolCall.function.name)) {
+        const isSharedAdminTool = isAdmin && toolCall.function.name === 'search_products'
+        if (adminOnlyToolNames.includes(toolCall.function.name) || isSharedAdminTool) {
           toolResult = await executeAdminTool(
             toolCall.function.name,
             toolArguments,
@@ -1181,7 +1200,11 @@ export const chat = async (messages, userId, userRole = 'user') => {
                 id: p.id,
                 title: p.title,
                 price: p.price,
+                image: p.image || '',
                 stock: p.stock,
+                brand: p.brand || '',
+                sales: p.sales || 0,
+                rating: p.rating || 0,
                 category: p.category || '未分类',
                 description: p.description ? p.description.slice(0, 200) : ''
               }))
@@ -1274,7 +1297,8 @@ export const chat = async (messages, userId, userRole = 'user') => {
       let toolResult
       const userToolNames = new Set(tools.map(t => t.function.name))
       const adminOnlyToolNames = adminTools.filter(t => !userToolNames.has(t.function.name)).map(t => t.function.name)
-      if (adminOnlyToolNames.includes(toolCall.name)) {
+      const isSharedAdminTool2 = isAdmin && toolCall.name === 'search_products'
+      if (adminOnlyToolNames.includes(toolCall.name) || isSharedAdminTool2) {
         toolResult = await executeAdminTool(
           toolCall.name,
           toolArguments,
@@ -1316,7 +1340,11 @@ export const chat = async (messages, userId, userRole = 'user') => {
               id: p.id,
               title: p.title,
               price: p.price,
+              image: p.image || '',
               stock: p.stock,
+              brand: p.brand || '',
+              sales: p.sales || 0,
+              rating: p.rating || 0,
               category: p.category || '未分类',
               description: p.description ? p.description.slice(0, 200) : ''
             }))

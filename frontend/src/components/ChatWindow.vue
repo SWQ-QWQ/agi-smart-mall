@@ -135,23 +135,16 @@
                   >
                     <div class="flex items-center gap-3">
                       <div 
-                        class="relative w-20 h-20 bg-gray-100 flex items-center justify-center flex-shrink-0 rounded overflow-hidden cursor-pointer"
+                        class="relative w-20 h-20 flex-shrink-0 rounded overflow-hidden cursor-pointer"
                         @click="goToProduct(product.id)"
                       >
                         <img 
-                          v-if="product.image" 
                           :src="getProductImageUrl(product.image)" 
                           :alt="product.title" 
                           class="w-full h-full object-cover"
-                          @error="handleProductImageError"
+                          @error="e => { const fallback = getProductImageUrl('/avatars/default-product.png'); if (e.target.src !== fallback) { e.target.src = fallback } }"
                           loading="lazy"
                         />
-                        <span 
-                          :class="[
-                            'w-full h-full flex items-center justify-center text-3xl text-gray-400',
-                            product.image ? 'hidden' : ''
-                          ]"
-                        >🛍️</span>
                       </div>
                       <div class="flex-1 min-w-0">
                         <p 
@@ -849,17 +842,9 @@ const handleAvatarError = (e) => {
 }
 
 const getProductImageUrl = (image) => {
-  if (!image) return ''
+  if (!image) return 'http://localhost:3000/avatars/default-product.png'
   if (image.startsWith('http')) return image
   return `http://localhost:3000${image}`
-}
-
-const handleProductImageError = (e) => {
-  e.target.style.display = 'none'
-  const nextSibling = e.target.nextElementSibling
-  if (nextSibling) {
-    nextSibling.style.display = 'flex'
-  }
 }
 
 const showToastMessage = (message) => {

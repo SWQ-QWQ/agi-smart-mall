@@ -24,6 +24,23 @@ const executeAdminTool = async (toolName, toolArguments, userId, userRole) => {
     return { success: false, message: '权限不足，需要管理员权限', actions: [] }
   }
 
+  const resolveProductId = (ProductId) => {
+    if (ProductId) return { resolved: true, ProductId }
+
+    const ctx = getAdminSessionContext(userId)
+    const results = ctx.lastSearchResults || []
+
+    if (results.length === 0) {
+      return { resolved: false, Products: [] }
+    }
+
+    if (results.length === 1) {
+      return { resolved: true, ProductId: results[0].id, ProductName: results[0].title }
+    }
+
+    return { resolved: false, Products: results }
+  }
+
   try {
     switch (toolName) {
       case 'search_products': {
@@ -426,7 +443,21 @@ const executeAdminTool = async (toolName, toolArguments, userId, userRole) => {
       }
 
       case 'edit_product': {
-        const { productId, title, description, price, stock, categoryId, status } = toolArguments
+        let { productId, title, description, price, stock, categoryId, status } = toolArguments
+
+        const resolveResult = resolveProductId(productId)
+        if (!resolveResult.resolved) {
+          if (resolveResult.Products.length === 0) {
+            return { success: false, message: '未指定商品ID且没有搜索上下文', summary: '请先搜索商品，或直接提供商品ID', actions: [] }
+          }
+          return {
+            success: false,
+            message: '需要选择商品',
+            summary: '上一次搜索找到多个商品，请指定要修改哪一个：\n' + resolveResult.Products.map((p, i) => `${i + 1}. ${p.title}（ID:${p.id}，¥${p.price}）`).join('\n'),
+            actions: []
+          }
+        }
+        productId = resolveResult.ProductId
 
         const product = await Product.findByPk(productId)
         if (!product) {
@@ -511,7 +542,21 @@ const executeAdminTool = async (toolName, toolArguments, userId, userRole) => {
       }
 
       case 'update_product_price': {
-        const { productId, newPrice } = toolArguments
+        let { productId, newPrice } = toolArguments
+
+        const resolveResult = resolveProductId(productId)
+        if (!resolveResult.resolved) {
+          if (resolveResult.Products.length === 0) {
+            return { success: false, message: '未指定商品ID且没有搜索上下文', summary: '请先搜索商品，或直接告诉我商品ID', actions: [] }
+          }
+          return {
+            success: false,
+            message: '需要选择商品',
+            summary: '上一次搜索找到多个商品，请指定要修改哪一个的价格：\n' + resolveResult.Products.map((p, i) => `${i + 1}. ${p.title}（ID:${p.id}，¥${p.price}）`).join('\n'),
+            actions: []
+          }
+        }
+        productId = resolveResult.ProductId
 
         console.log('[修改商品价格] 开始执行，参数:', { productId, newPrice })
 
@@ -560,7 +605,21 @@ const executeAdminTool = async (toolName, toolArguments, userId, userRole) => {
       }
 
       case 'update_product_stock': {
-        const { productId, newStock } = toolArguments
+        let { productId, newStock } = toolArguments
+
+        const resolveResult = resolveProductId(productId)
+        if (!resolveResult.resolved) {
+          if (resolveResult.Products.length === 0) {
+            return { success: false, message: '未指定商品ID且没有搜索上下文', summary: '请先搜索商品，或直接告诉我商品ID', actions: [] }
+          }
+          return {
+            success: false,
+            message: '需要选择商品',
+            summary: '上一次搜索找到多个商品，请指定要修改哪一个的库存：\n' + resolveResult.Products.map((p, i) => `${i + 1}. ${p.title}（ID:${p.id}，库存${p.stock}）`).join('\n'),
+            actions: []
+          }
+        }
+        productId = resolveResult.ProductId
 
         console.log('[修改商品库存] 开始执行，参数:', { productId, newStock })
 
@@ -609,7 +668,21 @@ const executeAdminTool = async (toolName, toolArguments, userId, userRole) => {
       }
 
       case 'update_product_status': {
-        const { productId, status } = toolArguments
+        let { productId, status } = toolArguments
+
+        const resolveResult = resolveProductId(productId)
+        if (!resolveResult.resolved) {
+          if (resolveResult.Products.length === 0) {
+            return { success: false, message: '未指定商品ID且没有搜索上下文', summary: '请先搜索商品，或直接告诉我商品ID', actions: [] }
+          }
+          return {
+            success: false,
+            message: '需要选择商品',
+            summary: '上一次搜索找到多个商品，请指定要修改哪一个的状态：\n' + resolveResult.Products.map((p, i) => `${i + 1}. ${p.title}（ID:${p.id}，¥${p.price}）`).join('\n'),
+            actions: []
+          }
+        }
+        productId = resolveResult.ProductId
 
         console.log('[修改商品状态] 开始执行，参数:', { productId, status })
 
@@ -660,7 +733,21 @@ const executeAdminTool = async (toolName, toolArguments, userId, userRole) => {
       }
 
       case 'delete_product': {
-        const { productId, confirm } = toolArguments
+        let { productId, confirm } = toolArguments
+
+        const resolveResult = resolveProductId(productId)
+        if (!resolveResult.resolved) {
+          if (resolveResult.Products.length === 0) {
+            return { success: false, message: '未指定商品ID且没有搜索上下文', summary: '请先搜索商品，或直接告诉我商品ID', actions: [] }
+          }
+          return {
+            success: false,
+            message: '需要选择商品',
+            summary: '上一次搜索找到多个商品，请指定要删除哪一个：\n' + resolveResult.Products.map((p, i) => `${i + 1}. ${p.title}（ID:${p.id}，¥${p.price}）`).join('\n'),
+            actions: []
+          }
+        }
+        productId = resolveResult.ProductId
 
         if (!confirm) {
           return {

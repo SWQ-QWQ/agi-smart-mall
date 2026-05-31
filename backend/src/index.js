@@ -78,6 +78,7 @@ app.get('/api/health', (req, res) => {
 })
 
 app.use('/uploads', express.static('src/uploads'))
+app.use('/avatars', express.static('src/uploads/avatars'))
 app.use(express.raw({ type: 'application/xml', limit: '1mb' }))
 
 app.use('/api/products', productRoutes)
