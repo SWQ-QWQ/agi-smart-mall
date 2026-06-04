@@ -6,3 +6,21 @@ dist/
 *.log
 .vscode/
 .idea/
+
+# Test files
+test_*.js
+verify_*.mjs
+check_*.mjs
+find_*.js
+simple_test.mjs
+
+# Documents
+*.pptx
+*.docx
+
+# UML diagrams
+*.puml
+
+# Temporary files
+*.tmp
+*.bak
