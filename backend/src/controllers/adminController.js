@@ -86,22 +86,18 @@ export const getDashboard = async (req, res) => {
       }
     })
 
-    const completedOrders = await Order.findAll({
-      where: { status: 'completed' },
-      attributes: ['total_price']
-    })
-    const totalSales = completedOrders.reduce((sum, order) => sum + parseFloat(order.total_price || 0), 0)
+    const totalSales = await Order.sum('total_price', {
+      where: { status: { [Op.in]: ['paid', 'shipped', 'completed'] } }
+    }) || 0
 
     const lastWeekStart = new Date(today)
     lastWeekStart.setDate(lastWeekStart.getDate() - 7)
-    const lastWeekOrders = await Order.findAll({
+    const lastWeekSales = await Order.sum('total_price', {
       where: {
         createdAt: { [Op.between]: [lastWeekStart, today] },
-        status: 'completed'
-      },
-      attributes: ['total_price']
-    })
-    const lastWeekSales = lastWeekOrders.reduce((sum, order) => sum + parseFloat(order.total_price || 0), 0)
+        status: { [Op.in]: ['paid', 'shipped', 'completed'] }
+      }
+    }) || 0
     const salesChange = lastWeekSales > 0 ? ((totalSales - lastWeekSales) / lastWeekSales * 100).toFixed(1) : 0
 
     const last7Days = []
@@ -142,7 +138,7 @@ export const getDashboard = async (req, res) => {
         productCount,
         orderCount,
         todayOrderCount,
-        totalSales: totalSales.toFixed(2),
+        totalSales: Number(totalSales).toFixed(2),
         salesChange: parseFloat(salesChange),
         orderChange: 8.2,
         userChange: 5.3,

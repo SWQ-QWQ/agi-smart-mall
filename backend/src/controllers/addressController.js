@@ -1,4 +1,4 @@
-import { Address } from '../models/index.js'
+import { Address, Order } from '../models/index.js'
 
 export const getMyAddresses = async (req, res) => {
   try {
@@ -129,20 +129,32 @@ export const deleteAddress = async (req, res) => {
       where: { id: req.params.id, user_id: req.userId }
     })
     if (!address) {
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
         message: '地址不存在'
       })
     }
+    
+    // 检查该地址是否被订单引用
+    const orderCount = await Order.count({
+      where: { shipping_address_id: req.params.id }
+    })
+    if (orderCount > 0) {
+      return res.status(200).json({
+        success: false,
+        message: '该地址已被订单使用，无法删除'
+      })
+    }
+    
     await address.destroy()
     res.json({
       success: true,
       message: '删除地址成功'
     })
   } catch (error) {
-    res.status(500).json({
+    res.status(200).json({
       success: false,
-      message: error.message
+      message: '删除地址失败，请稍后重试'
     })
   }
 }

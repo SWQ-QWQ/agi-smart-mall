@@ -63,7 +63,7 @@
           <div class="p-4 flex items-center justify-between">
             <div>
               <span class="text-gray-500 text-sm">下单时间：</span>
-              <span class="text-gray-700 text-sm">{{ new Date(order.created_at).toLocaleString() }}</span>
+              <span class="text-gray-700 text-sm">{{ formatTime(getCreatedAt(order)) }}</span>
             </div>
             <div class="flex items-center gap-4">
               <span>实付 <span class="text-red-500 font-bold text-lg">¥{{ order.total_price }}</span></span>
@@ -109,6 +109,28 @@ import { getOrders } from '@/api/orderApi'
 const orders = ref([])
 const filterStatus = ref('')
 const isLoading = ref(true)
+
+const formatTime = (dateValue) => {
+  if (!dateValue || dateValue === '' || dateValue === null || dateValue === undefined) return '未知时间'
+  try {
+    const date = new Date(dateValue)
+    if (isNaN(date.getTime())) return '未知时间'
+    return date.toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    })
+  } catch (e) {
+    return '未知时间'
+  }
+}
+
+const getCreatedAt = (order) => {
+  return order.createdAt || order.created_at
+}
 
 const statusOptions = [
   { value: '', label: '全部' },

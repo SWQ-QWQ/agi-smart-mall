@@ -496,9 +496,17 @@ const executeTool = async (toolName, toolArguments, userId) => {
 
           let totalPrice = 0
           for (const item of cartItems) {
-            if (!item.product || item.product.stock < item.quantity) {
+            if (!item.product) {
               await transaction.rollback()
-              return { success: false, message: '库存不足' }
+              return { success: false, message: `商品不存在，请检查购物车` }
+            }
+            if (item.quantity <= 0) {
+              await transaction.rollback()
+              return { success: false, message: `商品${item.product.title}的数量不能为0或负数，请调整购物车` }
+            }
+            if (item.product.stock < item.quantity) {
+              await transaction.rollback()
+              return { success: false, message: `商品${item.product.title}库存不足，当前库存${item.product.stock}，您要购买${item.quantity}件，请调整数量` }
             }
             totalPrice += item.product.price * item.quantity
           }
@@ -857,11 +865,11 @@ const executeTool = async (toolName, toolArguments, userId) => {
   }
 }
 
-// 调用大模型 API - 严格按照 DeepSeek API 格式
+// 调用大模型 API - 严格按照千问大模型 API 格式
 const callLLM = async (messages, tools, toolChoice = 'auto') => {
   const apiKey = process.env.OPENAI_API_KEY
-  const baseUrl = process.env.OPENAI_BASE_URL || 'https://api.deepseek.com/v1'
-  const model = process.env.AI_MODEL || 'deepseek-chat'
+  const baseUrl = process.env.OPENAI_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1'
+  const model = process.env.AI_MODEL || 'qwen-plus'
 
   console.log('发送给千问的 messages 数量:', messages.length)
   console.log('发送给千问的 tools 数量:', tools?.length)
@@ -907,7 +915,7 @@ const callLLM = async (messages, tools, toolChoice = 'auto') => {
       max_tokens: 4096
     }
 
-    console.debug('DeepSeek API 请求体:', JSON.stringify(requestBody, null, 2))
+    console.debug('千问大模型 API 请求体:', JSON.stringify(requestBody, null, 2))
 
     // 添加超时控制
     const controller = new AbortController()
@@ -926,7 +934,7 @@ const callLLM = async (messages, tools, toolChoice = 'auto') => {
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('=== DeepSeek API 调用失败 ===')
+      console.error('=== 千问大模型 API 调用失败 ===')
       console.error(`HTTP 状态码: ${response.status} (${response.statusText})`)
       console.error(`请求 URL: ${baseUrl}/chat/completions`)
       console.error('响应内容:', errorText)
@@ -939,10 +947,10 @@ const callLLM = async (messages, tools, toolChoice = 'auto') => {
     if (!result?.choices?.[0]?.message?.tool_calls) {
       console.log('千问直接返回了文本回复:', result?.choices?.[0]?.message?.content?.slice(0, 200))
     }
-    console.debug('DeepSeek API 响应:', JSON.stringify(result, null, 2))
+    console.debug('千问大模型 API 响应:', JSON.stringify(result, null, 2))
     return result
   } catch (error) {
-    console.error('=== DeepSeek API 调用异常 ===')
+    console.error('=== 千问大模型 API 调用异常 ===')
     console.error('异常信息:', error.message)
     console.error('异常堆栈:', error.stack)
     console.error('===========================')
@@ -1072,6 +1080,8 @@ export const chat = async (messages, userId, userRole = 'user') => {
 
 ## 🔗 链接
 回复中可用：[商品名](/product/ID) [购物车](/cart) [我的订单](/orders)
+- 购物车相关场景（如“去下单”、“去结算”）→ 指向 [购物车](/cart)
+- 订单相关场景（如“我的订单”、“查看订单”）→ 指向 [我的订单](/orders)
 
 ## 🌟 性格
 活泼友好、简洁高效。

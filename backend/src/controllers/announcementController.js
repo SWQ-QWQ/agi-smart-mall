@@ -55,3 +55,96 @@ export const getAnnouncementById = async (req, res) => {
     })
   }
 }
+
+export const createAnnouncement = async (req, res) => {
+  try {
+    const { title, content, status = 'active' } = req.body
+
+    if (!title || !content) {
+      return res.status(400).json({
+        success: false,
+        message: '标题和内容不能为空'
+      })
+    }
+
+    const announcement = await Announcement.create({
+      title,
+      content,
+      status
+    })
+
+    return res.status(201).json({
+      success: true,
+      data: announcement,
+      message: '创建公告成功'
+    })
+  } catch (error) {
+    console.error('创建公告失败:', error)
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    })
+  }
+}
+
+export const updateAnnouncement = async (req, res) => {
+  try {
+    const { id } = req.params
+    const { title, content, status } = req.body
+
+    const announcement = await Announcement.findByPk(id)
+
+    if (!announcement) {
+      return res.status(404).json({
+        success: false,
+        message: '公告不存在'
+      })
+    }
+
+    await announcement.update({
+      title: title || announcement.title,
+      content: content || announcement.content,
+      status: status !== undefined ? status : announcement.status
+    })
+
+    return res.status(200).json({
+      success: true,
+      data: announcement,
+      message: '更新公告成功'
+    })
+  } catch (error) {
+    console.error('更新公告失败:', error)
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    })
+  }
+}
+
+export const deleteAnnouncement = async (req, res) => {
+  try {
+    const { id } = req.params
+
+    const announcement = await Announcement.findByPk(id)
+
+    if (!announcement) {
+      return res.status(404).json({
+        success: false,
+        message: '公告不存在'
+      })
+    }
+
+    await announcement.destroy()
+
+    return res.status(200).json({
+      success: true,
+      message: '删除公告成功'
+    })
+  } catch (error) {
+    console.error('删除公告失败:', error)
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    })
+  }
+}

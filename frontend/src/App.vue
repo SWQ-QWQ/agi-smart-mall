@@ -1,7 +1,7 @@
 <template>
   <div id="app">
     <router-view />
-    <ChatWindow />
+    <!-- <ChatWindow /> -->
     
     <!-- 回到顶部按钮 -->
     <Transition name="fade">
@@ -36,7 +36,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import ChatWindow from './components/ChatWindow.vue'
+// import ChatWindow from './components/ChatWindow.vue'
 import { toast } from './utils/toast'
 
 const router = useRouter()

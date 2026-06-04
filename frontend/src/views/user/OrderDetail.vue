@@ -82,7 +82,7 @@
           <div class="space-y-2 text-sm">
             <div class="flex justify-between">
               <span class="text-gray-500">下单时间</span>
-              <span>{{ new Date(order.created_at).toLocaleString() }}</span>
+              <span>{{ formatTime(getCreatedAt(order)) }}</span>
             </div>
           </div>
         </div>
@@ -121,6 +121,28 @@ const router = useRouter()
 
 const order = ref(null)
 const isLoading = ref(true)
+
+const formatTime = (dateValue) => {
+  if (!dateValue || dateValue === '' || dateValue === null || dateValue === undefined) return '未知时间'
+  try {
+    const date = new Date(dateValue)
+    if (isNaN(date.getTime())) return '未知时间'
+    return date.toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    })
+  } catch (e) {
+    return '未知时间'
+  }
+}
+
+const getCreatedAt = (order) => {
+  return order.createdAt || order.created_at
+}
 
 const statusText = {
   pending: '待付款',

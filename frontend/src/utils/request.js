@@ -28,12 +28,15 @@ request.interceptors.request.use(
 request.interceptors.response.use(
   (response) => response.data,
   (error) => {
+    console.error('API请求错误:', error.response || error.message)
+    
     if (error.response?.status === 401) {
       localStorage.removeItem('adminToken')
       localStorage.removeItem('adminUser')
       localStorage.removeItem('token')
       localStorage.removeItem('user')
     }
+    
     return Promise.reject(error)
   }
 )

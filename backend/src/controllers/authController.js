@@ -78,6 +78,13 @@ export const login = async (req, res) => {
       })
     }
 
+    if (user.status === 'banned') {
+      return res.status(403).json({
+        success: false,
+        message: '账号已被封禁，请联系管理员'
+      })
+    }
+
     const isValidPassword = await user.validatePassword(password)
     if (!isValidPassword) {
       return res.status(401).json({

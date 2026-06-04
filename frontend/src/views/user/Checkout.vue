@@ -101,23 +101,38 @@ const fetchAddresses = async () => {
 }
 
 const submitOrder = async () => {
+    console.log('[提交订单] 点击提交')
+    
     if (!selectedAddress.value) {
       alert('请选择收货地址')
       return
     }
+    
+    if (selectedItems.value.length === 0) {
+      alert('购物车为空，请先选择商品')
+      return
+    }
 
     isSubmitting.value = true
+    console.log('[提交订单] 开始请求，addressId:', selectedAddress.value.id)
+    
     try {
       const response = await createOrder({
         addressId: selectedAddress.value.id
       })
+      
+      console.log('[提交订单] 收到响应:', response)
+      
       if (response.success) {
         await cartStore.fetchCart()
+        console.log('[提交订单] 成功，跳转到支付页面')
         router.push(`/payment/${response.data.id}`)
+      } else {
+        alert(response.message || '创建订单失败，请稍后重试')
       }
     } catch (error) {
-      console.error('Failed to create order:', error)
-      alert('创建订单失败')
+      console.error('[提交订单] 发生错误:', error)
+      alert(error.response?.data?.message || '创建订单失败，请稍后重试')
     } finally {
       isSubmitting.value = false
     }
