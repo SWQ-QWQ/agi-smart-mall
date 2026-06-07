@@ -171,6 +171,50 @@
                   </div>
                 </div>
               </div>
+
+              <!-- 订单列表 -->
+              <div v-if="msg.orders && msg.orders.length > 0" class="mt-3">
+                <div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+                  <div class="px-3 py-2 bg-gray-50 border-b border-gray-100">
+                    <span class="text-xs font-medium text-gray-600">订单列表 ({{ msg.orders.length }})</span>
+                  </div>
+                  <div class="divide-y divide-gray-100">
+                    <div 
+                      v-for="order in msg.orders" 
+                      :key="order.id"
+                      class="px-3 py-2 hover:bg-gray-50 transition-colors cursor-pointer"
+                      @click="goToAdminOrder(order.id)"
+                    >
+                      <div class="flex items-center justify-between">
+                        <div class="flex-1 min-w-0">
+                          <p class="text-sm font-medium text-gray-800 truncate">
+                            订单号: {{ order.orderNo || order.id }}
+                          </p>
+                          <p class="text-xs text-gray-500 mt-0.5">
+                            用户: {{ order.username || '未知' }} | 总价: ¥{{ order.totalPrice }}
+                          </p>
+                        </div>
+                        <div class="ml-2">
+                          <span :class="[
+                            'px-2 py-1 text-xs rounded-full',
+                            order.status === 'completed' ? 'bg-green-100 text-green-700' :
+                            order.status === 'shipped' ? 'bg-blue-100 text-blue-700' :
+                            order.status === 'paid' ? 'bg-yellow-100 text-yellow-700' :
+                            order.status === 'cancelled' ? 'bg-gray-100 text-gray-700' :
+                            'bg-orange-100 text-orange-700'
+                          ]">
+                            {{ getOrderStatusText(order.status) }}
+                          </span>
+                        </div>
+                      </div>
+                      <p class="text-xs text-gray-400 mt-1">
+                        {{ formatTime(order.createdAt) }}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <p :class="[
                 'text-xs mt-1',
                 msg.role === 'user' ? 'text-white/60' : 'text-gray-400'
@@ -791,6 +835,29 @@ const goToProduct = (productId) => {
   }
 }
 
+const goToAdminOrder = (orderId) => {
+  console.log('goToAdminOrder 被调用:', orderId)
+  if (orderId) {
+    router.push(`/admin/orders?search=${orderId}`).then(() => {
+      closeChat()
+    }).catch(err => {
+      console.error('路由跳转失败:', err)
+      closeChat()
+    })
+  }
+}
+
+const getOrderStatusText = (status) => {
+  const statusMap = {
+    'pending': '待付款',
+    'paid': '已付款',
+    'shipped': '已发货',
+    'completed': '已完成',
+    'cancelled': '已取消'
+  }
+  return statusMap[status] || status || '未知状态'
+}
+
 const addToCart = async (product) => {
   try {
     console.log('[加购] 开始加入购物车')
@@ -903,8 +970,10 @@ const sendMessage = (text = null) => {
     if (res.success) {
       console.log('AI 响应成功:', res.data)
       
-      if (res.data && res.data.reply) {
-        const reply = stripMarkdown(res.data.reply)
+      // 支持 reply 和 summary 字段（部分接口返回 summary）
+      const replyText = res.data.reply || res.data.summary || ''
+      if (replyText) {
+        const reply = stripMarkdown(replyText)
         console.log('AI 回复内容:', reply)
         
         const messageData = {
@@ -918,6 +987,11 @@ const sendMessage = (text = null) => {
           messageData.products = res.data.products
         }
         
+        if (res.data.orders && res.data.orders.length > 0) {
+          console.log('订单列表:', res.data.orders)
+          messageData.orders = res.data.orders
+        }
+        
         if (res.data.actions && res.data.actions.length > 0) {
           res.data.actions.forEach(action => {
             handleAction(action)
@@ -926,7 +1000,7 @@ const sendMessage = (text = null) => {
 
         messages.value.push(messageData)
       } else {
-        console.error('AI 响应数据异常: res.data.reply 不存在', res.data)
+        console.error('AI 响应数据异常: reply 和 summary 都不存在', res.data)
         messages.value.push({
           role: 'assistant',
           content: '抱歉，AI 回复数据异常，请稍后重试。',

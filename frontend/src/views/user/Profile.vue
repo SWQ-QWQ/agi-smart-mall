@@ -111,6 +111,18 @@
             </div>
             <span class="text-sm text-gray-700">修改密码</span>
           </button>
+          <button @click="showEmailModal = true" class="flex flex-col items-center py-3 hover:bg-orange-50 rounded-xl transition-colors group">
+            <div class="w-14 h-14 bg-gradient-to-br from-purple-100 to-purple-50 rounded-xl flex items-center justify-center text-2xl mb-2 group-hover:scale-110 transition-transform">
+              <span>📧</span>
+            </div>
+            <span class="text-sm text-gray-700">修改邮箱</span>
+          </button>
+          <button @click="showPhoneModal = true" class="flex flex-col items-center py-3 hover:bg-orange-50 rounded-xl transition-colors group">
+            <div class="w-14 h-14 bg-gradient-to-br from-cyan-100 to-cyan-50 rounded-xl flex items-center justify-center text-2xl mb-2 group-hover:scale-110 transition-transform">
+              <span>📱</span>
+            </div>
+            <span class="text-sm text-gray-700">修改手机</span>
+          </button>
           <div class="flex flex-col items-center py-3 hover:bg-orange-50 rounded-xl transition-colors group cursor-pointer">
             <div class="w-14 h-14 bg-gradient-to-br from-blue-100 to-blue-50 rounded-xl flex items-center justify-center text-2xl mb-2 group-hover:scale-110 transition-transform">
               <span>👀</span>
@@ -192,6 +204,82 @@
         </form>
       </div>
     </div>
+
+    <!-- Email Modal -->
+    <div v-if="showEmailModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="showEmailModal = false">
+      <div class="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-xl">
+        <div class="bg-gradient-to-r from-purple-500 to-purple-600 px-6 py-4">
+          <h3 class="text-white font-bold text-lg">修改邮箱</h3>
+        </div>
+        <form @submit.prevent="handleUpdateEmail" class="p-6 space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">新邮箱</label>
+            <input
+              v-model="emailForm.email"
+              type="email"
+              required
+              placeholder="请输入新邮箱地址"
+              class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-100 outline-none transition-all"
+            >
+          </div>
+          <div v-if="emailError" class="text-red-500 text-sm text-center">{{ emailError }}</div>
+          <div class="flex gap-3 pt-2">
+            <button
+              type="button"
+              @click="showEmailModal = false"
+              class="flex-1 px-4 py-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              :disabled="isSubmitting"
+              class="flex-1 px-4 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl hover:opacity-90 transition-all disabled:opacity-50"
+            >
+              {{ isSubmitting ? '提交中...' : '确认修改' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Phone Modal -->
+    <div v-if="showPhoneModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="showPhoneModal = false">
+      <div class="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-xl">
+        <div class="bg-gradient-to-r from-cyan-500 to-cyan-600 px-6 py-4">
+          <h3 class="text-white font-bold text-lg">修改手机号</h3>
+        </div>
+        <form @submit.prevent="handleUpdatePhone" class="p-6 space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">新手机号</label>
+            <input
+              v-model="phoneForm.phone"
+              type="tel"
+              required
+              placeholder="请输入新手机号"
+              class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 outline-none transition-all"
+            >
+          </div>
+          <div v-if="phoneError" class="text-red-500 text-sm text-center">{{ phoneError }}</div>
+          <div class="flex gap-3 pt-2">
+            <button
+              type="button"
+              @click="showPhoneModal = false"
+              class="flex-1 px-4 py-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              :disabled="isSubmitting"
+              class="flex-1 px-4 py-3 bg-gradient-to-r from-cyan-500 to-cyan-600 text-white rounded-xl hover:opacity-90 transition-all disabled:opacity-50"
+            >
+              {{ isSubmitting ? '提交中...' : '确认修改' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -213,6 +301,16 @@ const passwordForm = ref({
   newPassword: '',
   confirmPassword: ''
 })
+const showEmailModal = ref(false)
+const showPhoneModal = ref(false)
+const emailForm = ref({
+  email: ''
+})
+const phoneForm = ref({
+  phone: ''
+})
+const emailError = ref('')
+const phoneError = ref('')
 const fileInput = ref(null)
 const favoriteCount = ref(0)
 
@@ -304,6 +402,90 @@ const handleUpdatePassword = async () => {
   } catch (error) {
     console.error('Failed to update password:', error)
     passwordError.value = '密码修改失败，请稍后重试'
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
+const handleUpdateEmail = async () => {
+  emailError.value = ''
+  
+  if (!emailForm.value.email) {
+    emailError.value = '请输入邮箱地址'
+    return
+  }
+  
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailRegex.test(emailForm.value.email)) {
+    emailError.value = '请输入有效的邮箱地址'
+    return
+  }
+
+  isSubmitting.value = true
+  try {
+    const response = await fetch('http://localhost:3000/api/users/update-email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify({ email: emailForm.value.email })
+    })
+    
+    const result = await response.json()
+    if (result.success) {
+      toast.success('邮箱修改成功')
+      userStore.userEmail = emailForm.value.email
+      showEmailModal.value = false
+      emailForm.value.email = ''
+    } else {
+      emailError.value = result.message || '邮箱修改失败'
+    }
+  } catch (error) {
+    console.error('Failed to update email:', error)
+    emailError.value = '邮箱修改失败，请稍后重试'
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
+const handleUpdatePhone = async () => {
+  phoneError.value = ''
+  
+  if (!phoneForm.value.phone) {
+    phoneError.value = '请输入手机号'
+    return
+  }
+  
+  const phoneRegex = /^1[3-9]\d{9}$/
+  if (!phoneRegex.test(phoneForm.value.phone)) {
+    phoneError.value = '请输入有效的手机号'
+    return
+  }
+
+  isSubmitting.value = true
+  try {
+    const response = await fetch('http://localhost:3000/api/users/update-phone', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify({ phone: phoneForm.value.phone })
+    })
+    
+    const result = await response.json()
+    if (result.success) {
+      toast.success('手机号修改成功')
+      userStore.userPhone = phoneForm.value.phone
+      showPhoneModal.value = false
+      phoneForm.value.phone = ''
+    } else {
+      phoneError.value = result.message || '手机号修改失败'
+    }
+  } catch (error) {
+    console.error('Failed to update phone:', error)
+    phoneError.value = '手机号修改失败，请稍后重试'
   } finally {
     isSubmitting.value = false
   }
